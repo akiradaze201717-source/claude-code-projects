@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>訪問地マップ</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin="" />
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 地図コンテナ -->
+  <div id="map"></div>
+
+  <!-- 訪問カウンター -->
+  <div id="visit-counter" class="visit-counter">
+    <span id="counter-num">0</span> か所訪問
+  </div>
+
+  <!-- テーマ切り替え -->
+  <button id="theme-toggle" class="theme-toggle" title="地図テーマを変更" aria-label="地図テーマを変更">🎨</button>
+  <div id="theme-panel" class="theme-panel hidden"></div>
+
+  <!-- ピン追加ボタン (FAB) -->
+  <button id="fab-add" class="fab" title="現在地にピンを追加">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  </button>
+
+  <!-- ピン追加モーダル -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>訪問地を記録</h2>
+        <button id="modal-close" class="modal-close" aria-label="閉じる">&times;</button>
+      </div>
+      <form id="pin-form">
+        <div class="form-group">
+          <label for="pin-title">タイトル <span class="required">*</span></label>
+          <input type="text" id="pin-title" name="title" required placeholder="例: 東京タワー" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label for="pin-memo">メモ</label>
+          <textarea id="pin-memo" name="memo" rows="3" placeholder="感想やメモを入力..." maxlength="500"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="pin-photo">写真</label>
+          <input type="file" id="pin-photo" name="photo" accept="image/*">
+          <div id="photo-preview" class="photo-preview hidden">
+            <img id="preview-img" alt="プレビュー">
+            <button type="button" id="photo-remove" class="photo-remove">写真を削除</button>
+          </div>
+        </div>
+        <div class="form-group location-info">
+          <span id="location-display"></span>
+        </div>
+        <input type="hidden" id="pin-lat" name="lat">
+        <input type="hidden" id="pin-lng" name="lng">
+        <div class="form-actions">
+          <button type="button" id="btn-cancel" class="btn btn-secondary">キャンセル</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 削除確認モーダル -->
+  <div id="delete-overlay" class="modal-overlay hidden">
+    <div class="modal modal-small">
+      <h3>削除の確認</h3>
+      <p>このピンを削除しますか？この操作は元に戻せません。</p>
+      <div class="form-actions">
+        <button id="delete-cancel" class="btn btn-secondary">キャンセル</button>
+        <button id="delete-confirm" class="btn btn-danger">削除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- フッター（ライセンス情報） -->
+  <div id="app-footer" class="app-footer">
+    <a href="privacy.html" target="_blank">プライバシーポリシー</a>
+    <span class="separator">|</span>
+    <span>Powered by <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a> (BSD-2-Clause)</span>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+
+  <!-- Dexie.js (IndexedDB wrapper) -->
+  <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
+
+  <!-- exifr (EXIF/GPS読み取り) -->
+  <script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
+
+  <!-- App JS -->
+  <script src="js/db.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

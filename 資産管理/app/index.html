@@ -1,0 +1,535 @@
+<!doctype html>
+<title>資産手帳</title>
+<style>
+  :root {
+    --paper: #F6F3EA;
+    --surface: #FFFFFF;
+    --surface-2: #FBF9F3;
+    --ink: #211F1A;
+    --ink-soft: #6E6858;
+    --ink-faint: #A39C89;
+    --border: #E5DFCF;
+    --navy: #1C3A45;
+    --navy-ink: #0F2229;
+    --navy-soft: #DCE7E6;
+    --gold: #A87A22;
+    --gold-soft: #F1E3C4;
+    --sage: #3E7358;
+    --sage-soft: #DEEBE2;
+    --coral: #AE4A38;
+    --coral-soft: #F3DCD6;
+    --shadow: 0 1px 2px rgba(33,31,26,0.06), 0 6px 20px -8px rgba(33,31,26,0.18);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14181A;
+      --surface: #1C2225;
+      --surface-2: #212829;
+      --ink: #EDE9DD;
+      --ink-soft: #A7A192;
+      --ink-faint: #6C6A5F;
+      --border: #303735;
+      --navy: #6FA3AE;
+      --navy-ink: #DCEEEF;
+      --navy-soft: #223235;
+      --gold: #D3A64B;
+      --gold-soft: #2E2A1C;
+      --sage: #7CB998;
+      --sage-soft: #1E2E24;
+      --coral: #DE8D7C;
+      --coral-soft: #33201D;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -8px rgba(0,0,0,0.5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14181A;
+    --surface: #1C2225;
+    --surface-2: #212829;
+    --ink: #EDE9DD;
+    --ink-soft: #A7A192;
+    --ink-faint: #6C6A5F;
+    --border: #303735;
+    --navy: #6FA3AE;
+    --navy-ink: #DCEEEF;
+    --navy-soft: #223235;
+    --gold: #D3A64B;
+    --gold-soft: #2E2A1C;
+    --sage: #7CB998;
+    --sage-soft: #1E2E24;
+    --coral: #DE8D7C;
+    --coral-soft: #33201D;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -8px rgba(0,0,0,0.5);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Zen Kaku Gothic New', 'Hiragino Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 78px;
+  }
+  .shell { max-width: 480px; margin: 0 auto; padding: 20px 18px 8px; }
+
+  .topbar { display:flex; align-items:baseline; justify-content:space-between; margin-bottom: 18px; }
+  .brand { font-family: 'Shippori Mincho', serif; font-weight: 600; font-size: 20px; letter-spacing: .02em; }
+  .asof { font-size: 11px; color: var(--ink-faint); }
+
+  .hero {
+    background: linear-gradient(155deg, var(--navy) 0%, var(--navy-ink) 100%);
+    color: var(--gold-soft);
+    border-radius: 20px;
+    padding: 22px 22px 18px;
+    box-shadow: var(--shadow);
+  }
+  :root[data-theme="dark"] .hero, @media (prefers-color-scheme: dark) { }
+  .hero .label { font-size: 12px; opacity: .72; letter-spacing: .04em; }
+  .hero .figure {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1.15;
+    margin: 4px 0 8px;
+    font-variant-numeric: tabular-nums;
+    color: #F7F1DE;
+  }
+  .hero .delta { display:inline-flex; align-items:center; gap:4px; font-size: 13px; padding: 3px 10px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+  .delta.up { background: rgba(126,196,158,.18); color: #9FE0BB; }
+  .delta.down { background: rgba(222,141,124,.2); color: #F0AFA0; }
+  .delta.flat { background: rgba(255,255,255,.12); color: #E7E2D2; }
+
+  .trend-card { padding: 16px 14px 10px; }
+  .trend-head { display:flex; align-items:baseline; justify-content:space-between; padding: 0 4px 6px; }
+  .trend-head .ttl { font-size: 12.5px; color: var(--ink-soft); font-weight: 700; letter-spacing:.03em; }
+  .trend-head .range { font-size: 11px; color: var(--ink-faint); }
+  #trendChart { width: 100%; height: 176px; display:block; overflow: visible; }
+  .trend-axis-label { font-size: 9.5px; fill: var(--ink-faint); font-family: 'Zen Kaku Gothic New', sans-serif; }
+  .trend-date-label { font-size: 9.5px; fill: var(--ink-faint); font-family: 'Zen Kaku Gothic New', sans-serif; }
+  .trend-value-label { font-size: 11px; font-weight: 700; fill: var(--navy); font-family: 'Zen Kaku Gothic New', sans-serif; }
+  .trend-grid { stroke: var(--border); stroke-width: 1; }
+  .trend-baseline { stroke: var(--ink-faint); stroke-width: 1; }
+  .trend-area { fill: url(#waterFill); }
+  .trend-line { fill: none; stroke: var(--navy); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .trend-dot { fill: var(--surface); stroke: var(--navy); stroke-width: 2.4; }
+  .grad-stop-top { stop-color: var(--navy); stop-opacity: 0.5; }
+  .grad-stop-bottom { stop-color: var(--navy); stop-opacity: 0.04; }
+
+  .section-title {
+    font-size: 13px; font-weight: 700; color: var(--ink-soft);
+    letter-spacing: .04em; margin: 24px 0 10px 2px;
+  }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
+  .row { display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; gap: 10px; }
+  .row + .row { border-top: 1px solid var(--border); }
+  .row .name { font-size: 14px; }
+  .row .cat { font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
+  .row .amt { font-variant-numeric: tabular-nums; font-size: 14.5px; font-weight: 500; }
+  .amt.asset { color: var(--sage); }
+  .amt.liability { color: var(--coral); }
+
+  .pill { font-size: 10px; padding: 2px 7px; border-radius: 999px; font-weight: 700; letter-spacing: .02em; }
+  .pill.asset { background: var(--sage-soft); color: var(--sage); }
+  .pill.liability { background: var(--coral-soft); color: var(--coral); }
+
+  .cat-bar-row { padding: 11px 16px; }
+  .cat-bar-row .top { display:flex; justify-content:space-between; font-size: 13px; margin-bottom: 5px; }
+  .cat-bar-row .amt { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+  .track { height: 7px; border-radius: 999px; background: var(--surface-2); overflow:hidden; }
+  .fill { height: 100%; background: var(--gold); border-radius: 999px; }
+  .cat-bar-row.uncategorized .fill { background: var(--coral); }
+  .cat-bar-row.uncategorized .name { color: var(--coral); }
+
+  .empty { padding: 26px 16px; text-align:center; color: var(--ink-faint); font-size: 13px; }
+
+  /* --- 入力タブ --- */
+  .group-label { display:flex; align-items:center; gap:8px; margin: 22px 0 10px 2px; }
+  .group-label .name { font-size: 13px; font-weight: 700; color: var(--ink-soft); letter-spacing: .04em; }
+  .input-row { display:flex; align-items:center; justify-content:space-between; padding: 11px 14px; gap: 12px; }
+  .input-row + .input-row { border-top: 1px solid var(--border); }
+  .input-row .meta { min-width: 0; }
+  .input-row .name { font-size: 13.5px; }
+  .input-row .prev { font-size: 11px; color: var(--ink-faint); margin-top: 1px; font-variant-numeric: tabular-nums; }
+  .input-row input {
+    width: 118px; text-align: right; font-size: 15px; font-variant-numeric: tabular-nums;
+    padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--gold-soft); color: var(--ink); font-family: inherit;
+  }
+  .input-row input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .input-row input::placeholder { color: var(--ink-faint); }
+  .hint { font-size: 11.5px; color: var(--ink-faint); padding: 10px 16px 2px; line-height: 1.5; }
+
+  .save-bar {
+    position: sticky; bottom: 78px; margin-top: 18px;
+    display:flex; align-items:center; justify-content:space-between; gap: 10px;
+  }
+  .save-btn {
+    flex: 1; background: var(--navy); color: var(--gold-soft); border: none; border-radius: 14px;
+    font-family: inherit; font-size: 15px; font-weight: 700; padding: 14px; cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+  .save-btn:active { transform: translateY(1px); }
+  .save-status { font-size: 11px; color: var(--ink-faint); text-align:center; margin-top: 8px; }
+
+  .confirm-note {
+    margin-top: 16px; padding: 12px 14px; border-radius: 12px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    font-size: 12px; color: var(--ink-soft); line-height: 1.6;
+  }
+
+  /* --- タブバー --- */
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: var(--surface); border-top: 1px solid var(--border);
+    display:flex; padding: 8px 18px calc(10px + env(safe-area-inset-bottom));
+    max-width: 480px; margin: 0 auto;
+  }
+  .tab {
+    flex: 1; display:flex; flex-direction:column; align-items:center; gap: 3px;
+    background: none; border: none; font-family: inherit; color: var(--ink-faint);
+    font-size: 11px; padding: 6px 0; cursor: pointer;
+  }
+  .tab svg { width: 21px; height: 21px; }
+  .tab.active { color: var(--navy); }
+  :root[data-theme="dark"] .tab.active, @media (prefers-color-scheme: dark) { }
+
+  .view { display:none; }
+  .view.active { display:block; }
+
+  [hidden] { display:none !important; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+
+<div class="shell">
+  <div class="topbar">
+    <div class="brand">資産手帳</div>
+    <div class="asof" id="asOf">—</div>
+  </div>
+
+  <!-- ダッシュボード -->
+  <section id="view-dashboard" class="view active">
+    <div class="hero">
+      <div class="label">純資産</div>
+      <div class="figure" id="netWorthFigure">¥ —</div>
+      <span class="delta flat" id="wowDelta">前週比 —</span>
+    </div>
+
+    <div class="section-title">純資産の推移</div>
+    <div class="card trend-card">
+      <div class="trend-head">
+        <span class="range" id="trendRange">—</span>
+      </div>
+      <svg id="trendChart" viewBox="0 0 400 176"></svg>
+    </div>
+
+    <div class="section-title">資産・負債の内訳</div>
+    <div class="card" id="breakdownCard"><div class="empty">データがありません</div></div>
+
+    <div class="section-title">支出カテゴリ（直近4週）</div>
+    <div class="card" id="categoryCard"><div class="empty">データがありません</div></div>
+  </section>
+
+  <!-- 入力 -->
+  <section id="view-input" class="view">
+    <div class="hint">口座名の下は前回確定時の残高です。分かる範囲で「今回残高」を入力してください。クレジットカードは請求額をそのまま入力（正の数）。GMOコインは確定時に自動で最新値に置き換わるので、空欄のままで構いません。</div>
+
+    <div class="group-label"><span class="name">資産</span></div>
+    <div class="card" id="assetInputs"></div>
+
+    <div class="group-label"><span class="name">負債</span></div>
+    <div class="card" id="liabilityInputs"></div>
+
+    <div class="save-bar">
+      <button class="save-btn" id="saveBtn">保存する</button>
+    </div>
+    <div class="save-status" id="saveStatus">未保存の変更はありません</div>
+
+    <div class="confirm-note">保存だけではまだ確定しません。入力が済んだら、Claude に「確定して」と伝えてください。GMOコインの最新残高と合わせて純資産を計算し、記録・ダッシュボード・Obsidianへの反映まで行います。</div>
+  </section>
+</div>
+
+<nav class="tabbar">
+  <button class="tab active" data-view="dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 4 3 6-7 4 4"/><path d="M3 20h18"/></svg>
+    ダッシュボード
+  </button>
+  <button class="tab" data-view="input">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h5"/></svg>
+    入力
+  </button>
+</nav>
+
+<script>
+  // ---- 口座マスタ（balances/accounts.py の data/accounts.json と対応） ----
+  const ACCOUNTS = [
+    { id: "gmo_coin_jpy",       name: "GMOコイン(現金)",           type: "asset",     category: "暗号資産取引所" },
+    { id: "gmo_coin_crypto",    name: "GMOコイン(暗号資産評価額)",  type: "asset",     category: "暗号資産取引所" },
+    { id: "sbi_sec_domestic",   name: "SBI証券(国内株式)",         type: "asset",     category: "証券" },
+    { id: "sbi_sec_fund",       name: "SBI証券(投資信託)",         type: "asset",     category: "証券" },
+    { id: "sbi_sec_us",         name: "SBI証券(米国株式)",         type: "asset",     category: "証券" },
+    { id: "docomo_sbi_bank",    name: "ドコモSBIネット銀行",       type: "asset",     category: "銀行" },
+    { id: "paypay",             name: "PayPay",                   type: "asset",     category: "ウォレット" },
+    { id: "resona_bank",        name: "りそな銀行",                type: "asset",     category: "銀行" },
+    { id: "smbc_card",          name: "三井住友カード",            type: "liability", category: "クレジットカード" },
+    { id: "saison_gold",        name: "セゾンゴールドカード",       type: "liability", category: "クレジットカード" },
+    { id: "jcb_card",           name: "JCBカード",                type: "liability", category: "クレジットカード" },
+  ];
+  const ACCOUNTS_BY_ID = Object.fromEntries(ACCOUNTS.map(a => [a.id, a]));
+
+  // ---- サンプルデータを初期表示に埋め込む（db解決前でも空にならないように） ----
+  const SEED_SNAPSHOTS = [
+    {
+      date: "2026-08-31", net_worth: 1000000, total_assets: 1050000, total_liabilities: 50000,
+      by_account: { gmo_coin_jpy:20000, gmo_coin_crypto:30000, sbi_sec_domestic:300000, sbi_sec_fund:400000,
+                    sbi_sec_us:50000, docomo_sbi_bank:200000, paypay:10000, resona_bank:40000,
+                    smbc_card:20000, saison_gold:15000, jcb_card:15000 },
+      category_totals: [["投資",10000],["食費",15000],["日用品",5000],["サブスク",3000]],
+    },
+  ];
+  const SEED_INPUT = {
+    values: {},
+    prev: { gmo_coin_jpy:20000, gmo_coin_crypto:30000, sbi_sec_domestic:300000, sbi_sec_fund:400000,
+            sbi_sec_us:50000, docomo_sbi_bank:200000, paypay:10000, resona_bank:40000,
+            smbc_card:20000, saison_gold:15000, jcb_card:15000 },
+  };
+
+  let snapshots = SEED_SNAPSHOTS;
+  let currentInput = SEED_INPUT;
+  let dbRef = null;
+  let dirty = false;
+
+  const yen = n => "¥" + Math.round(n).toLocaleString("ja-JP");
+
+  function renderDashboard() {
+    const latest = snapshots[snapshots.length - 1];
+    const prev = snapshots.length >= 2 ? snapshots[snapshots.length - 2] : null;
+
+    document.getElementById("asOf").textContent = latest ? `最新: ${latest.date}` : "";
+    document.getElementById("netWorthFigure").textContent = latest ? yen(latest.net_worth) : "データなし";
+
+    const deltaEl = document.getElementById("wowDelta");
+    if (latest && prev) {
+      const diff = latest.net_worth - prev.net_worth;
+      deltaEl.className = "delta " + (diff > 0 ? "up" : diff < 0 ? "down" : "flat");
+      deltaEl.textContent = `前週比 ${diff >= 0 ? "+" : ""}${yen(diff)}`;
+    } else {
+      deltaEl.className = "delta flat";
+      deltaEl.textContent = "前週比 初回のため比較なし";
+    }
+
+    drawTrend(snapshots);
+
+    const bCard = document.getElementById("breakdownCard");
+    if (!latest) { bCard.innerHTML = '<div class="empty">データがありません</div>'; }
+    else {
+      const ids = Object.keys(latest.by_account).sort((a,b) => {
+        const A = ACCOUNTS_BY_ID[a], B = ACCOUNTS_BY_ID[b];
+        if (!A || !B) return 0;
+        if (A.type !== B.type) return A.type === "asset" ? -1 : 1;
+        return B_balance(latest,b) - B_balance(latest,a);
+      });
+      function B_balance(snap,id){ return snap.by_account[id] || 0; }
+      bCard.innerHTML = ids.map(id => {
+        const meta = ACCOUNTS_BY_ID[id] || { name: id, type: "asset", category: "" };
+        const val = latest.by_account[id];
+        return `<div class="row">
+          <div class="meta"><div class="name">${esc(meta.name)}</div><div class="cat">${esc(meta.category)}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="pill ${meta.type}">${meta.type === "asset" ? "資産" : "負債"}</span>
+            <span class="amt ${meta.type}">${yen(val)}</span>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    const cCard = document.getElementById("categoryCard");
+    const cats = latest && latest.category_totals ? latest.category_totals : [];
+    if (!cats.length) { cCard.innerHTML = '<div class="empty">支出データがありません</div>'; }
+    else {
+      const max = Math.max(...cats.map(c => c[1]));
+      cCard.innerHTML = cats.map(([name, amt]) => {
+        const uncategorized = name === "未分類";
+        return `<div class="cat-bar-row ${uncategorized ? "uncategorized" : ""}">
+          <div class="top"><span class="name">${esc(name)}</span><span class="amt">${yen(amt)}</span></div>
+          <div class="track"><div class="fill" style="width:${Math.max(4, amt / max * 100)}%"></div></div>
+        </div>`;
+      }).join("");
+    }
+  }
+
+  function manYenAxis(v) {
+    const abs = Math.abs(v) / 10000;
+    const rounded = abs >= 100 ? Math.round(abs) : Math.round(abs * 10) / 10;
+    return (v < 0 ? "−" : "") + rounded.toLocaleString("ja-JP") + "万";
+  }
+
+  function shortDate(d) {
+    const parts = d.split("-");
+    return `${Number(parts[1])}/${Number(parts[2])}`;
+  }
+
+  function drawTrend(snaps) {
+    const svg = document.getElementById("trendChart");
+    const rangeEl = document.getElementById("trendRange");
+    const W = 400, H = 176, padL = 46, padR = 10, padT = 18, padB = 26;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const baseY = padT + plotH;
+
+    if (!snaps.length) {
+      svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" class="trend-axis-label">まだ確定した週がありません</text>`;
+      rangeEl.textContent = "—";
+      return;
+    }
+    rangeEl.textContent = snaps.length >= 2 ? `${snaps[0].date} 〜 ${snaps[snaps.length-1].date}` : `${snaps[0].date}（初回）`;
+
+    const values = snaps.map(s => s.net_worth);
+    let min = Math.min(...values), max = Math.max(...values);
+    if (min === max) {
+      const pad = Math.max(Math.abs(min) * 0.08, 10000);
+      min -= pad; max += pad;
+    } else {
+      const pad = (max - min) * 0.15;
+      min -= pad; max += pad;
+    }
+
+    const xAt = i => padL + (snaps.length === 1 ? plotW / 2 : (i / (snaps.length - 1)) * plotW);
+    const yAt = v => padT + plotH - ((v - min) / (max - min)) * plotH;
+
+    let gridSvg = "";
+    const ticks = 4;
+    for (let t = 0; t <= ticks; t++) {
+      const v = min + (max - min) * (t / ticks);
+      const y = yAt(v);
+      gridSvg += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" class="trend-grid"/>`;
+      gridSvg += `<text x="${padL-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end" class="trend-axis-label">${manYenAxis(v)}</text>`;
+    }
+
+    let xLabelSvg = "";
+    const maxLabels = 5;
+    const step = Math.max(1, Math.ceil(snaps.length / maxLabels));
+    snaps.forEach((s, i) => {
+      if (i % step !== 0 && i !== snaps.length - 1) return;
+      xLabelSvg += `<text x="${xAt(i).toFixed(1)}" y="${H-6}" text-anchor="middle" class="trend-date-label">${shortDate(s.date)}</text>`;
+    });
+
+    const pts = snaps.map((s, i) => [xAt(i), yAt(s.net_worth)]);
+    let areaPath, linePath;
+    if (pts.length === 1) {
+      const [, y] = pts[0];
+      linePath = `M${padL},${y.toFixed(1)} L${W-padR},${y.toFixed(1)}`;
+      areaPath = `${linePath} L${W-padR},${baseY.toFixed(1)} L${padL},${baseY.toFixed(1)} Z`;
+    } else {
+      linePath = pts.map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+      areaPath = `${linePath} L${pts[pts.length-1][0].toFixed(1)},${baseY.toFixed(1)} L${pts[0][0].toFixed(1)},${baseY.toFixed(1)} Z`;
+    }
+
+    const last = pts[pts.length - 1];
+    const labelX = Math.min(last[0] + 8, W - padR - 44);
+    const labelY = Math.max(last[1] - 10, padT + 10);
+
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="waterFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" class="grad-stop-top"/>
+          <stop offset="100%" class="grad-stop-bottom"/>
+        </linearGradient>
+      </defs>
+      ${gridSvg}
+      <path d="${areaPath}" class="trend-area"/>
+      <path d="${linePath}" class="trend-line"/>
+      <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="4.5" class="trend-dot"/>
+      <text x="${labelX.toFixed(1)}" y="${labelY.toFixed(1)}" class="trend-value-label">${manYenAxis(values[values.length-1])}</text>
+      ${xLabelSvg}
+      <line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${W-padR}" y2="${baseY.toFixed(1)}" class="trend-baseline"/>
+    `;
+  }
+
+  function renderInputTab() {
+    const groups = { asset: [], liability: [] };
+    ACCOUNTS.forEach(a => groups[a.type].push(a));
+
+    function rowsHtml(list) {
+      return list.map(a => {
+        const prevVal = currentInput.prev ? currentInput.prev[a.id] : null;
+        const curVal = currentInput.values ? currentInput.values[a.id] : null;
+        return `<div class="input-row">
+          <div class="meta"><div class="name">${esc(a.name)}</div>
+            <div class="prev">前回: ${prevVal != null ? yen(prevVal) : "—"}</div></div>
+          <input inputmode="numeric" pattern="[0-9]*" id="in-${a.id}"
+                 placeholder="${prevVal != null ? Math.round(prevVal) : "未入力"}"
+                 value="${curVal != null ? curVal : ""}" />
+        </div>`;
+      }).join("");
+    }
+    document.getElementById("assetInputs").innerHTML = rowsHtml(groups.asset);
+    document.getElementById("liabilityInputs").innerHTML = rowsHtml(groups.liability);
+
+    ACCOUNTS.forEach(a => {
+      const el = document.getElementById("in-" + a.id);
+      el.addEventListener("input", () => { dirty = true; updateSaveStatus(); });
+    });
+  }
+
+  function updateSaveStatus() {
+    document.getElementById("saveStatus").textContent = dirty ? "未保存の変更があります" : "保存済み";
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+  async function saveInput() {
+    const values = {};
+    ACCOUNTS.forEach(a => {
+      const el = document.getElementById("in-" + a.id);
+      const v = el.value.trim();
+      values[a.id] = v === "" ? null : Number(v);
+    });
+    currentInput = Object.assign({}, currentInput, { values });
+    dirty = false;
+    updateSaveStatus();
+    if (!dbRef) { document.getElementById("saveStatus").textContent = "オフラインのため保存できません（ページを開き直してください）"; return; }
+    try {
+      await dbRef.doc("input/current").set({
+        values, prev: currentInput.prev || {}, updated_at: new Date().toISOString(),
+      });
+      document.getElementById("saveStatus").textContent = "保存しました";
+    } catch (e) {
+      document.getElementById("saveStatus").textContent = "保存に失敗しました。もう一度お試しください。";
+    }
+  }
+
+  document.getElementById("saveBtn").addEventListener("click", saveInput);
+
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("view-" + btn.dataset.view).classList.add("active");
+    });
+  });
+
+  renderDashboard();
+  renderInputTab();
+
+  (async () => {
+    const db = await claude.use("db");
+    if (!db) return;
+    dbRef = db;
+    db.doc("input/current").onSnapshot(snap => {
+      if (snap.exists) {
+        const data = snap.data();
+        currentInput = data;
+        if (!dirty) renderInputTab();
+      }
+    });
+    db.collection("snapshots").orderBy("date", "asc").onSnapshot(qsnap => {
+      const docs = qsnap.docs.map(d => d.data());
+      if (docs.length) { snapshots = docs; renderDashboard(); }
+    });
+  })();
+</script>

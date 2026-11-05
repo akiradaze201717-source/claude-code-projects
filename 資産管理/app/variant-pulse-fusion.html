@@ -1,0 +1,408 @@
+<!doctype html>
+<title>マネーパルス フュージョン</title>
+<style>
+  :root {
+    --bg: #F5FBF8; --surface: #FFFFFF; --surface-2: #EEF6F1;
+    --ink: #172420; --ink-soft: #5E6E66; --ink-faint: #95A39B;
+    --border: #DEEAE3;
+    --mint: #16A579; --mint-soft: #E3F5EC;
+    --coral: #D8455E; --coral-soft: #FBE6EA;
+    --glow: radial-gradient(60% 60% at 50% 0%, rgba(22,165,121,0.14), transparent 70%);
+    --shadow: 0 10px 26px -14px rgba(23,36,32,0.18);
+    /* 資産手帳の純資産ヒーロー配色を移植 */
+    --navy: #1C3A45; --navy-ink: #0F2229;
+    --gold-label: #D9C79A; --gold-figure: #F7F1DE;
+    --hero-shadow: 0 14px 32px -14px rgba(15,34,41,0.5);
+    color-scheme: light;
+  }
+  /* このデザインはライト基調で固定（システム/ダーク設定でも同じ見え方にする） */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: 'Zen Maru Gothic', 'Hiragino Sans', sans-serif;
+    -webkit-font-smoothing: antialiased; padding-bottom: 82px;
+  }
+  .shell { max-width: 480px; margin: 0 auto; padding: 22px 18px 8px; position: relative; }
+  .shell::before { content:""; position:absolute; top:0; left:0; right:0; height: 260px; background: var(--glow); pointer-events:none; z-index:0; }
+  .shell > * { position: relative; z-index: 1; }
+
+  .topbar { display:flex; align-items:baseline; justify-content:space-between; margin-bottom: 18px; }
+  .brand { font-weight: 800; font-size: 19px; letter-spacing: .01em; }
+  .brand .dot { color: var(--mint); }
+  .asof { font-size: 11px; color: var(--ink-faint); }
+
+  .hero {
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-ink) 100%);
+    border-radius: 26px; padding: 24px 22px 20px; box-shadow: var(--hero-shadow);
+  }
+  .hero .label { font-size: 12.5px; color: var(--gold-label); font-weight: 500; letter-spacing: .03em; }
+  .hero .figure {
+    font-weight: 800; font-size: 46px; line-height: 1.1; margin: 6px 0 10px;
+    font-variant-numeric: tabular-nums; letter-spacing: -.01em; color: var(--gold-figure);
+  }
+  .chip { display:inline-flex; align-items:center; gap:5px; font-size: 12.5px; font-weight: 700; padding: 5px 12px; border-radius: 999px; }
+  .chip.up { background: rgba(61,214,166,.18); color: #7FE0BC; }
+  .chip.down { background: rgba(255,107,129,.2); color: #FFAAB8; }
+  .chip.flat { background: rgba(247,241,222,.12); color: var(--gold-label); }
+
+  .section-title { font-size: 13px; font-weight: 700; color: var(--ink-soft); margin: 26px 0 10px 4px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; overflow:hidden; box-shadow: var(--shadow); }
+  .trend-card { padding: 16px 12px 12px; }
+  .trend-range { font-size: 11px; color: var(--ink-faint); padding: 0 6px 6px; }
+  #trendChart { width: 100%; height: 176px; display:block; overflow: visible; }
+  .trend-axis-label, .trend-date-label { font-size: 9.5px; fill: var(--ink-faint); font-family: 'Zen Maru Gothic', sans-serif; }
+  .trend-value-label { font-size: 12px; font-weight: 800; fill: var(--mint); font-family: 'Zen Maru Gothic', sans-serif; }
+  .trend-grid { stroke: var(--border); stroke-width: 1; }
+  .trend-baseline { stroke: var(--border); stroke-width: 1; }
+  .trend-area { fill: url(#pulseFill); }
+  .trend-line { fill:none; stroke: var(--mint); stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
+  .trend-dot { fill: var(--bg); stroke: var(--mint); stroke-width: 3; }
+  .grad-top { stop-color: var(--mint); stop-opacity: .38; }
+  .grad-bottom { stop-color: var(--mint); stop-opacity: 0; }
+
+  .row { display:flex; align-items:center; justify-content:space-between; padding: 13px 16px; gap: 10px; }
+  .row + .row { border-top: 1px solid var(--border); }
+  .row .name { font-size: 14px; font-weight: 500; }
+  .row .cat { font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
+  .row .amt { font-variant-numeric: tabular-nums; font-size: 14.5px; font-weight: 700; }
+  .amt.asset { color: var(--mint); }
+  .amt.liability { color: var(--coral); }
+  .pill { font-size: 10px; padding: 3px 8px; border-radius: 999px; font-weight: 700; }
+  .pill.asset { background: var(--mint-soft); color: var(--mint); }
+  .pill.liability { background: var(--coral-soft); color: var(--coral); }
+
+  .cat-row { padding: 12px 16px; }
+  .cat-row .top { display:flex; justify-content:space-between; font-size: 13px; margin-bottom: 6px; font-weight: 500; }
+  .cat-row .amt { font-variant-numeric: tabular-nums; color: var(--ink-soft); font-weight: 700; }
+  .track { height: 8px; border-radius: 999px; background: var(--surface-2); overflow:hidden; }
+  .fill { height:100%; background: linear-gradient(90deg, var(--mint), #7CF0CE); border-radius: 999px; }
+  .cat-row.uncategorized .fill { background: linear-gradient(90deg, var(--coral), #FF9AA8); }
+  .cat-row.uncategorized .name { color: var(--coral); }
+
+  .empty { padding: 28px 16px; text-align:center; color: var(--ink-faint); font-size: 13px; }
+
+  .group-label { font-size: 13px; font-weight: 700; color: var(--ink-soft); margin: 24px 0 10px 4px; }
+  .input-row { display:flex; align-items:center; justify-content:space-between; padding: 12px 14px; gap: 12px; }
+  .input-row + .input-row { border-top: 1px solid var(--border); }
+  .input-row .name { font-size: 13.5px; font-weight: 500; }
+  .input-row .prev { font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
+  .input-row input {
+    width: 116px; text-align: right; font-size: 15px; font-variant-numeric: tabular-nums;
+    padding: 9px 12px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--ink); font-family: inherit; font-weight: 700;
+  }
+  .input-row input:focus { outline: 2px solid var(--mint); outline-offset: 1px; }
+  .input-row input::placeholder { color: var(--ink-faint); font-weight: 400; }
+  .hint { font-size: 11.5px; color: var(--ink-faint); padding: 8px 4px 4px; line-height: 1.6; }
+
+  .save-bar { position: sticky; bottom: 82px; margin-top: 18px; }
+  .save-btn {
+    width: 100%; background: linear-gradient(135deg, var(--mint), #0E8A66); color: #F3FBF7; border: none;
+    border-radius: 16px; font-family: inherit; font-size: 15px; font-weight: 800; padding: 15px; cursor: pointer;
+    box-shadow: 0 8px 20px -8px rgba(22,165,121,.45);
+  }
+  .save-btn:active { transform: translateY(1px); }
+  .save-status { font-size: 11px; color: var(--ink-faint); text-align:center; margin-top: 8px; }
+
+  .confirm-note { margin-top: 16px; padding: 13px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); font-size: 12px; color: var(--ink-soft); line-height: 1.6; }
+
+  .tabbar {
+    position: fixed; left:0; right:0; bottom:0; background: rgba(255,255,255,.88); backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border); display:flex; padding: 9px 18px calc(10px + env(safe-area-inset-bottom));
+    max-width: 480px; margin: 0 auto;
+  }
+  .tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; background:none; border:none; font-family: inherit; color: var(--ink-faint); font-size: 11px; padding: 6px 0; cursor:pointer; font-weight: 700; }
+  .tab svg { width: 21px; height: 21px; }
+  .tab.active { color: var(--mint); }
+
+  .view { display:none; }
+  .view.active { display:block; }
+  [hidden] { display:none !important; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;800&display=swap">
+
+<div class="shell">
+  <div class="topbar"><div class="brand">マネー<span class="dot">パルス</span></div><div class="asof" id="asOf">—</div></div>
+
+  <section id="view-dashboard" class="view active">
+    <div class="hero">
+      <div class="label">純資産</div>
+      <div class="figure" id="netWorthFigure">¥ —</div>
+      <span class="chip flat" id="wowDelta">前週比 —</span>
+    </div>
+
+    <div class="section-title">推移</div>
+    <div class="card trend-card">
+      <div class="trend-range" id="trendRange">—</div>
+      <svg id="trendChart" viewBox="0 0 400 176"></svg>
+    </div>
+
+    <div class="section-title">資産・負債の内訳</div>
+    <div class="card" id="breakdownCard"><div class="empty">データがありません</div></div>
+
+    <div class="section-title">支出カテゴリ（直近4週）</div>
+    <div class="card" id="categoryCard"><div class="empty">データがありません</div></div>
+  </section>
+
+  <section id="view-input" class="view">
+    <div class="hint">口座名の下は前回確定時の残高です。分かる範囲で「今回残高」を入力してください。クレジットカードは請求額をそのまま入力（正の数）。GMOコインは確定時に自動で最新値に置き換わるので、空欄のままで構いません。</div>
+
+    <div class="group-label">資産</div>
+    <div class="card" id="assetInputs"></div>
+
+    <div class="group-label">負債</div>
+    <div class="card" id="liabilityInputs"></div>
+
+    <div class="save-bar"><button class="save-btn" id="saveBtn">保存する</button></div>
+    <div class="save-status" id="saveStatus">未保存の変更はありません</div>
+
+    <div class="confirm-note">保存だけではまだ確定しません。入力が済んだら、Claude に「確定して」と伝えてください。GMOコインの最新残高と合わせて純資産を計算し、記録・ダッシュボード・Obsidianへの反映まで行います。</div>
+  </section>
+</div>
+
+<nav class="tabbar">
+  <button class="tab active" data-view="dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l4-4 4 3 6-7 4 4"/><path d="M3 20h18"/></svg>
+    ホーム
+  </button>
+  <button class="tab" data-view="input">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 10h8M8 14h5"/></svg>
+    入力
+  </button>
+</nav>
+
+<script>
+  const ACCOUNTS = [
+    { id: "gmo_coin_jpy",       name: "GMOコイン(現金)",           type: "asset",     category: "暗号資産取引所" },
+    { id: "gmo_coin_crypto",    name: "GMOコイン(暗号資産評価額)",  type: "asset",     category: "暗号資産取引所" },
+    { id: "sbi_sec_domestic",   name: "SBI証券(国内株式)",         type: "asset",     category: "証券" },
+    { id: "sbi_sec_fund",       name: "SBI証券(投資信託)",         type: "asset",     category: "証券" },
+    { id: "sbi_sec_us",         name: "SBI証券(米国株式)",         type: "asset",     category: "証券" },
+    { id: "docomo_sbi_bank",    name: "ドコモSBIネット銀行",       type: "asset",     category: "銀行" },
+    { id: "paypay",             name: "PayPay",                   type: "asset",     category: "ウォレット" },
+    { id: "resona_bank",        name: "りそな銀行",                type: "asset",     category: "銀行" },
+    { id: "smbc_card",          name: "三井住友カード",            type: "liability", category: "クレジットカード" },
+    { id: "saison_gold",        name: "セゾンゴールドカード",       type: "liability", category: "クレジットカード" },
+    { id: "jcb_card",           name: "JCBカード",                type: "liability", category: "クレジットカード" },
+  ];
+  const ACCOUNTS_BY_ID = Object.fromEntries(ACCOUNTS.map(a => [a.id, a]));
+
+  const SEED_SNAPSHOTS = [
+    {
+      date: "2026-08-31", net_worth: 1000000, total_assets: 1050000, total_liabilities: 50000,
+      by_account: { gmo_coin_jpy:20000, gmo_coin_crypto:30000, sbi_sec_domestic:300000, sbi_sec_fund:400000,
+                    sbi_sec_us:50000, docomo_sbi_bank:200000, paypay:10000, resona_bank:40000,
+                    smbc_card:20000, saison_gold:15000, jcb_card:15000 },
+      category_totals: [["投資",10000],["食費",15000],["日用品",5000],["サブスク",3000]],
+    },
+  ];
+  const SEED_INPUT = {
+    values: {},
+    prev: { gmo_coin_jpy:20000, gmo_coin_crypto:30000, sbi_sec_domestic:300000, sbi_sec_fund:400000,
+            sbi_sec_us:50000, docomo_sbi_bank:200000, paypay:10000, resona_bank:40000,
+            smbc_card:20000, saison_gold:15000, jcb_card:15000 },
+  };
+
+  let snapshots = SEED_SNAPSHOTS;
+  let currentInput = SEED_INPUT;
+  let dbRef = null;
+  let dirty = false;
+
+  const yen = n => "¥" + Math.round(n).toLocaleString("ja-JP");
+
+  function renderDashboard() {
+    const latest = snapshots[snapshots.length - 1];
+    const prev = snapshots.length >= 2 ? snapshots[snapshots.length - 2] : null;
+
+    document.getElementById("asOf").textContent = latest ? `最新: ${latest.date}` : "";
+    document.getElementById("netWorthFigure").textContent = latest ? yen(latest.net_worth) : "データなし";
+
+    const deltaEl = document.getElementById("wowDelta");
+    if (latest && prev) {
+      const diff = latest.net_worth - prev.net_worth;
+      deltaEl.className = "chip " + (diff > 0 ? "up" : diff < 0 ? "down" : "flat");
+      deltaEl.textContent = `前週比 ${diff >= 0 ? "+" : ""}${yen(diff)}`;
+    } else {
+      deltaEl.className = "chip flat";
+      deltaEl.textContent = "前週比 初回のため比較なし";
+    }
+
+    drawTrend(snapshots);
+
+    const bCard = document.getElementById("breakdownCard");
+    if (!latest) { bCard.innerHTML = '<div class="empty">データがありません</div>'; }
+    else {
+      const ids = Object.keys(latest.by_account).sort((a,b) => {
+        const A = ACCOUNTS_BY_ID[a], B = ACCOUNTS_BY_ID[b];
+        if (!A || !B) return 0;
+        if (A.type !== B.type) return A.type === "asset" ? -1 : 1;
+        return (latest.by_account[b]||0) - (latest.by_account[a]||0);
+      });
+      bCard.innerHTML = ids.map(id => {
+        const meta = ACCOUNTS_BY_ID[id] || { name: id, type: "asset", category: "" };
+        const val = latest.by_account[id];
+        return `<div class="row">
+          <div><div class="name">${esc(meta.name)}</div><div class="cat">${esc(meta.category)}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="pill ${meta.type}">${meta.type === "asset" ? "資産" : "負債"}</span>
+            <span class="amt ${meta.type}">${yen(val)}</span>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    const cCard = document.getElementById("categoryCard");
+    const cats = latest && latest.category_totals ? latest.category_totals : [];
+    if (!cats.length) { cCard.innerHTML = '<div class="empty">支出データがありません</div>'; }
+    else {
+      const max = Math.max(...cats.map(c => c[1]));
+      cCard.innerHTML = cats.map(([name, amt]) => {
+        const uncategorized = name === "未分類";
+        return `<div class="cat-row ${uncategorized ? "uncategorized" : ""}">
+          <div class="top"><span class="name">${esc(name)}</span><span class="amt">${yen(amt)}</span></div>
+          <div class="track"><div class="fill" style="width:${Math.max(4, amt / max * 100)}%"></div></div>
+        </div>`;
+      }).join("");
+    }
+  }
+
+  function manYenAxis(v) {
+    const abs = Math.abs(v) / 10000;
+    const rounded = abs >= 100 ? Math.round(abs) : Math.round(abs * 10) / 10;
+    return (v < 0 ? "−" : "") + rounded.toLocaleString("ja-JP") + "万";
+  }
+  function shortDate(d) { const p = d.split("-"); return `${Number(p[1])}/${Number(p[2])}`; }
+
+  function drawTrend(snaps) {
+    const svg = document.getElementById("trendChart");
+    const rangeEl = document.getElementById("trendRange");
+    const W = 400, H = 176, padL = 44, padR = 10, padT = 18, padB = 26;
+    const plotW = W - padL - padR, plotH = H - padT - padB, baseY = padT + plotH;
+
+    if (!snaps.length) {
+      svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" class="trend-axis-label">まだ確定した週がありません</text>`;
+      rangeEl.textContent = "—"; return;
+    }
+    rangeEl.textContent = snaps.length >= 2 ? `${snaps[0].date} 〜 ${snaps[snaps.length-1].date}` : `${snaps[0].date}（初回）`;
+
+    const values = snaps.map(s => s.net_worth);
+    let min = Math.min(...values), max = Math.max(...values);
+    if (min === max) { const pad = Math.max(Math.abs(min)*0.08, 10000); min -= pad; max += pad; }
+    else { const pad = (max-min)*0.15; min -= pad; max += pad; }
+
+    const xAt = i => padL + (snaps.length===1 ? plotW/2 : (i/(snaps.length-1))*plotW);
+    const yAt = v => padT + plotH - ((v-min)/(max-min))*plotH;
+
+    let gridSvg = "";
+    for (let t=0; t<=4; t++) {
+      const v = min + (max-min)*(t/4), y = yAt(v);
+      gridSvg += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" class="trend-grid"/>`;
+      gridSvg += `<text x="${padL-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end" class="trend-axis-label">${manYenAxis(v)}</text>`;
+    }
+    let xLabelSvg = "";
+    const step = Math.max(1, Math.ceil(snaps.length/5));
+    snaps.forEach((s,i) => { if (i%step!==0 && i!==snaps.length-1) return;
+      xLabelSvg += `<text x="${xAt(i).toFixed(1)}" y="${H-6}" text-anchor="middle" class="trend-date-label">${shortDate(s.date)}</text>`; });
+
+    const pts = snaps.map((s,i)=>[xAt(i), yAt(s.net_worth)]);
+    let areaPath, linePath;
+    if (pts.length===1) {
+      const [,y] = pts[0];
+      linePath = `M${padL},${y.toFixed(1)} L${W-padR},${y.toFixed(1)}`;
+      areaPath = `${linePath} L${W-padR},${baseY.toFixed(1)} L${padL},${baseY.toFixed(1)} Z`;
+    } else {
+      linePath = pts.map((p,i)=>(i===0?"M":"L")+p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+      areaPath = `${linePath} L${pts[pts.length-1][0].toFixed(1)},${baseY.toFixed(1)} L${pts[0][0].toFixed(1)},${baseY.toFixed(1)} Z`;
+    }
+    const last = pts[pts.length-1];
+    const labelX = Math.min(last[0]+8, W-padR-44), labelY = Math.max(last[1]-12, padT+10);
+
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="pulseFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" class="grad-top"/>
+          <stop offset="100%" class="grad-bottom"/>
+        </linearGradient>
+      </defs>
+      ${gridSvg}
+      <path d="${areaPath}" class="trend-area"/>
+      <path d="${linePath}" class="trend-line"/>
+      <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="5" class="trend-dot"/>
+      <text x="${labelX.toFixed(1)}" y="${labelY.toFixed(1)}" class="trend-value-label">${manYenAxis(values[values.length-1])}</text>
+      ${xLabelSvg}
+      <line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${W-padR}" y2="${baseY.toFixed(1)}" class="trend-baseline"/>
+    `;
+  }
+
+  function renderInputTab() {
+    const groups = { asset: [], liability: [] };
+    ACCOUNTS.forEach(a => groups[a.type].push(a));
+    function rowsHtml(list) {
+      return list.map(a => {
+        const prevVal = currentInput.prev ? currentInput.prev[a.id] : null;
+        const curVal = currentInput.values ? currentInput.values[a.id] : null;
+        return `<div class="input-row">
+          <div><div class="name">${esc(a.name)}</div><div class="prev">前回: ${prevVal != null ? yen(prevVal) : "—"}</div></div>
+          <input inputmode="numeric" pattern="[0-9]*" id="in-${a.id}"
+                 placeholder="${prevVal != null ? Math.round(prevVal) : "未入力"}"
+                 value="${curVal != null ? curVal : ""}" />
+        </div>`;
+      }).join("");
+    }
+    document.getElementById("assetInputs").innerHTML = rowsHtml(groups.asset);
+    document.getElementById("liabilityInputs").innerHTML = rowsHtml(groups.liability);
+    ACCOUNTS.forEach(a => {
+      document.getElementById("in-"+a.id).addEventListener("input", () => { dirty = true; updateSaveStatus(); });
+    });
+  }
+
+  function updateSaveStatus() {
+    document.getElementById("saveStatus").textContent = dirty ? "未保存の変更があります" : "保存済み";
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+  async function saveInput() {
+    const values = {};
+    ACCOUNTS.forEach(a => {
+      const v = document.getElementById("in-"+a.id).value.trim();
+      values[a.id] = v === "" ? null : Number(v);
+    });
+    currentInput = Object.assign({}, currentInput, { values });
+    dirty = false; updateSaveStatus();
+    if (!dbRef) { document.getElementById("saveStatus").textContent = "オフラインのため保存できません（ページを開き直してください）"; return; }
+    try {
+      await dbRef.doc("input/current").set({ values, prev: currentInput.prev || {}, updated_at: new Date().toISOString() });
+      document.getElementById("saveStatus").textContent = "保存しました";
+    } catch (e) {
+      document.getElementById("saveStatus").textContent = "保存に失敗しました。もう一度お試しください。";
+    }
+  }
+  document.getElementById("saveBtn").addEventListener("click", saveInput);
+
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("view-"+btn.dataset.view).classList.add("active");
+    });
+  });
+
+  renderDashboard();
+  renderInputTab();
+
+  (async () => {
+    const db = await claude.use("db");
+    if (!db) return;
+    dbRef = db;
+    db.doc("input/current").onSnapshot(snap => {
+      if (snap.exists) { currentInput = snap.data(); if (!dirty) renderInputTab(); }
+    });
+    db.collection("snapshots").orderBy("date", "asc").onSnapshot(qsnap => {
+      const docs = qsnap.docs.map(d => d.data());
+      if (docs.length) { snapshots = docs; renderDashboard(); }
+    });
+  })();
+</script>

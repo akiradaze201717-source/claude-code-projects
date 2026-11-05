@@ -1,0 +1,8 @@
+# 認証情報を含むためコミットしない
+config.env
+
+# 生成物・キャッシュ
+output/
+cache/
+__pycache__/
+*.pyc

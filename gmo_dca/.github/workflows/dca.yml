@@ -1,0 +1,30 @@
+name: Smart DCA - GMO Coin
+
+on:
+  schedule:
+    # 03:00 UTC = 12:00 JST 毎日実行
+    - cron: '0 3 * * *'
+  workflow_dispatch: # 手動テスト用
+
+jobs:
+  dca:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Smart DCA
+        working-directory: gmo_dca
+        env:
+          GMO_API_KEY: ${{ secrets.GMO_API_KEY }}
+          GMO_API_SECRET: ${{ secrets.GMO_API_SECRET }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_TO_ADDRESS: ${{ secrets.NOTIFY_TO_ADDRESS }}
+          TZ: Asia/Tokyo
+        run: python main.py

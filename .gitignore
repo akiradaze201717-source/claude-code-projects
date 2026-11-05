@@ -1,0 +1,78 @@
+# ==============================================================================
+# 1. APIキー・パスワード・認証設定ファイル
+# ==============================================================================
+.env
+*.env
+config.env
+!*.env.example
+!config.env.example
+scout_digest/scout_config.py
+
+# ==============================================================================
+# 2. 個人の資産管理・クレカ明細・投資データ・実データ
+# ==============================================================================
+資産管理/data/
+資産管理/expenses/category_rules.json
+資産管理/expenses/processed/
+資産管理/expenses/unprocessed/
+資産管理/reports/output/
+株式管理.xlsx
+Cramodoro_工程表.xlsx
+Fibo.csv
+budget_analysis.html
+株/ir_digest/buyback_events_archive.json
+
+# ==============================================================================
+# 3. ポートフォリオ剪定（小規模スクリプト・重複・個人メモ・大学課題）
+# ==============================================================================
+IPO_製造業_キオクシアみたいな/
+keep_alive/
+market_monitor/
+scout_digest/
+株/auto_ir_analyzer/
+株/ntt_trader/
+株/rakuten_trader/
+株/softbank_trader/
+株/モメチン/
+株/個別銘柄調査/
+機械工実験2/
+*_mid.cpp
+mid.exe
+*.exe
+*.pdf
+cramodoro_icon_*.png
+Cramodoro_アカウント構造.png
+rakimo_labs_icon*
+link_proper_nouns.py
+/main.py
+/requirements.txt
+
+# ==============================================================================
+# 4. AIエージェント設定・ローカル実行履歴・Obsidian連携情報
+# ==============================================================================
+.claude/
+**/.claude/
+.company/
+CLAUDE.md
+
+# ==============================================================================
+# 5. ログ・キャッシュ・一時ファイル
+# ==============================================================================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
+.ruff_cache/
+**/.ruff_cache/
+node_modules/
+**/node_modules/
+*.log
+logs/
+**/logs/
+cache/
+**/cache/
+_sched_result*.txt
+**/_sched_result*.txt
+_tmp*
+**/_tmp*

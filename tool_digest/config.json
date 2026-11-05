@@ -1,0 +1,10 @@
+{
+  "subreddits": ["Tools", "DIY", "Machinists", "woodworking"],
+  "posts_per_sub": 15,
+  "min_score": 50,
+  "rss_feeds": [
+    "https://hackaday.com/feed/",
+    "https://lifehacker.com/feed/rss"
+  ],
+  "obsidian_path": "./output_drafts"
+}

@@ -1,0 +1,28 @@
+# Ruff 設定ファイル (Python Linter & Formatter)
+# 対象: Cramodoro を除く全Pythonスクリプト
+
+target-version = "py310"
+line-length = 100
+
+# Cramodoro およびキャッシュ・仮想環境ディレクトリを除外
+extend-exclude = [
+    "Cramodoro",
+    "__pycache__",
+    ".pytest_cache",
+    ".claude",
+    ".company",
+]
+
+[lint]
+# E/W: pycodestyle, F: Pyflakes, I: isort, B: flake8-bugbear, UP: pyupgrade
+select = ["E", "F", "W", "I", "B", "UP"]
+# E501: 行長超過（日本語コメントや埋め込みHTML等で発生するため除外）
+# E402: ファイル先頭以外のimport（sys.path追加やload_dotenv後のimportが多いため除外）
+# B905: zip()のstrict引数省略（既存スクリプトで多用されているため除外）
+ignore = ["E501", "E402", "B905"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

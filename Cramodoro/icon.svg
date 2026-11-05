@@ -1,0 +1,12 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cramodoro">
+  <rect width="512" height="512" fill="#0b2545"/>
+  <!-- トラック（薄いリング） -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#16294b" stroke-width="30"/>
+  <!-- 「C」＝開いたタイマーリング（落ち着いたティール） -->
+  <path d="M362 362 A150 150 0 1 1 362 150" fill="none" stroke="#4ecdc4" stroke-width="30"/>
+  <!-- リング両端のキャップ（金） -->
+  <circle cx="362" cy="362" r="15" fill="#f5a623"/>
+  <circle cx="362" cy="150" r="15" fill="#f5a623"/>
+  <!-- 中央のフォーカス点 -->
+  <circle cx="256" cy="256" r="15" fill="#4ecdc4"/>
+</svg>

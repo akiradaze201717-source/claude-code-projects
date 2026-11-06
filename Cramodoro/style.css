@@ -1,0 +1,1165 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ===== テーマ（配色をCSS変数化）===== */
+:root {
+  --bg: #0b2545;
+  --bg-focus: #1a1a2e;
+  --panel: #13132a;
+  --surface1: #1c1c34;
+  --surface2: #23233f;
+  --surface3: #2a2a4a;
+  --surface-hover: #2f2f54;
+  --chip-del: #3a3a5e;
+  --border: #2a2a4a;
+  --text: #eee;
+  --text-strong: #fff;
+  --text-dim: #aab;
+  --text-faint: #777;
+  --accent: #4ecdc4;
+  --accent2: #6aa9e0;
+  --on-accent: #0b2545;
+  --gold: #f5a623;
+}
+body.light {
+  --bg: #eef1f7;
+  --bg-focus: #e6e9f2;
+  --panel: #ffffff;
+  --surface1: #f0f2f7;
+  --surface2: #e7eaf2;
+  --surface3: #dfe3ec;
+  --surface-hover: #d2d7e4;
+  --chip-del: #cdd3e1;
+  --border: #d7dbe6;
+  --text: #1c2233;
+  --text-strong: #0d1220;
+  --text-dim: #5a6478;
+  --text-faint: #99a0b0;
+  --on-accent: #0b2545;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.6s ease,
+    color 0.3s ease;
+}
+
+/* 集中タイマーが動いている時だけ色を変える */
+body.focusing {
+  background: var(--bg-focus);
+}
+
+.container {
+  text-align: center;
+  width: 340px;
+}
+
+.mode-label {
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 32px;
+  height: 16px;
+  transition: color 0.4s;
+}
+
+.mode-label.break {
+  color: var(--accent2);
+}
+
+.ring-wrapper {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 0 auto 36px;
+}
+
+svg.ring {
+  transform: rotate(-90deg);
+  width: 260px;
+  height: 260px;
+}
+
+circle.track {
+  fill: none;
+  stroke: var(--surface3);
+  stroke-width: 8;
+}
+
+circle.progress {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 722;
+  stroke-dashoffset: 0;
+  transition:
+    stroke-dashoffset 1s linear,
+    stroke 0.4s;
+}
+
+circle.progress.break {
+  stroke: var(--accent2);
+}
+
+.time-display {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.time {
+  font-size: 64px;
+  font-weight: 200;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.sessions {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-faint);
+  letter-spacing: 1px;
+}
+
+.controls {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 50px;
+  font-size: 14px;
+  letter-spacing: 1px;
+  transition:
+    transform 0.1s,
+    opacity 0.2s;
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+.btn-main {
+  background: var(--accent);
+  color: var(--text-strong);
+  padding: 14px 48px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.btn-main.break {
+  background: var(--accent2);
+}
+
+.btn-icon {
+  background: var(--surface3);
+  color: var(--text-dim);
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.btn-icon:hover {
+  color: var(--text);
+}
+
+.count {
+  margin-top: 28px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--text-faint);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.count:hover {
+  color: var(--text-dim);
+}
+
+.count b {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* ===== 設定（確率分布エディタ） ===== */
+.gear {
+  position: fixed;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  right: 16px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--surface3);
+  color: var(--text-dim);
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gear:hover {
+  color: var(--text);
+}
+
+.settings {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  padding: 16px;
+}
+.settings.open {
+  display: flex;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--surface3);
+  border-radius: 16px;
+  padding: 22px 22px 18px;
+  width: 360px;
+  max-width: 100%;
+}
+
+.panel h2 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.panel .hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.panel .mean {
+  font-size: 13px;
+  color: var(--accent2);
+  margin-bottom: 10px;
+  min-height: 18px;
+}
+
+.bars {
+  position: relative;
+  height: 150px;
+  display: flex;
+  gap: 3px;
+  touch-action: none;
+  user-select: none;
+  padding-top: 6px;
+}
+
+.bar {
+  flex: 1;
+  position: relative;
+  background: var(--surface2);
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: ns-resize;
+}
+
+.bar .fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--accent);
+  transition: height 0.05s linear;
+}
+
+.bar-labels {
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+}
+.bar-labels span {
+  flex: 1;
+  text-align: center;
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+.panel-actions button {
+  padding: 10px 20px;
+  font-size: 13px;
+}
+.btn-reset-dist {
+  background: var(--surface3);
+  color: var(--text-dim);
+}
+.btn-close {
+  background: var(--accent);
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.presets-label {
+  font-size: 11px;
+  color: var(--text-faint);
+  width: 100%;
+  margin-bottom: 2px;
+}
+.presets button {
+  background: var(--surface2);
+  color: var(--text-dim);
+  padding: 7px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.presets button:hover {
+  color: var(--text-strong);
+  background: var(--surface-hover);
+}
+.presets button.custom {
+  color: var(--accent2);
+}
+.presets button.custom:disabled {
+  color: var(--text-faint);
+  background: var(--surface1);
+  cursor: default;
+}
+
+.save-row {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+}
+.save-row input {
+  flex: 1;
+  background: var(--surface1);
+  border: 1px solid var(--surface3);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 9px 12px;
+  outline: none;
+}
+.save-row input::placeholder {
+  color: var(--text-faint);
+}
+.save-row input:focus {
+  border-color: var(--accent2);
+}
+.save-row .btn-save-custom {
+  background: var(--accent2);
+  color: #0b2545;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 9px 16px;
+  white-space: nowrap;
+}
+
+.custom-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  min-height: 4px;
+}
+.custom-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface2);
+  border-radius: 20px;
+  padding: 5px 6px 5px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.custom-chip .name {
+  cursor: pointer;
+}
+.custom-chip .name:hover {
+  color: var(--text-strong);
+}
+.custom-chip .del {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--chip-del);
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.custom-chip .del:hover {
+  background: var(--accent);
+  color: var(--text-strong);
+}
+.custom-empty {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* 休憩中だけ出る静的バナー枠。Proで非表示。
+   ★方針: 動画広告は差し込まない（インタースティシャル/全画面/リワード動画は使用しない）。
+     Phase 2 でも AdMob は「バナー（静的）」ユニットのみ。 */
+.ad-slot {
+  display: none;
+  margin: 24px auto 0;
+  width: 300px;
+  max-width: 100%;
+  height: 70px;
+  border: 1px dashed var(--surface3);
+  border-radius: 10px;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 12px;
+  letter-spacing: 1px;
+  position: relative;
+}
+.ad-slot .ad-tag {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+/* Pro / アップグレード枠 */
+.pro-box {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--surface3);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pro-box.active {
+  border-color: var(--accent2);
+}
+.pro-box.flash {
+  border-color: var(--accent);
+}
+.pro-status {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.pro-box.active .pro-status {
+  color: var(--accent2);
+}
+.pro-box.flash .pro-status {
+  color: var(--accent);
+}
+.btn-pro {
+  background: var(--gold);
+  color: #2a1a00;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 9px 14px;
+  white-space: nowrap;
+}
+
+/* 統計ボタン（歯車の左） */
+.stats-btn {
+  position: fixed;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  right: 66px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--surface3);
+  color: var(--text-dim);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stats-btn:hover {
+  color: var(--text);
+}
+
+/* ランク表示 */
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.rank-row .rank-ico {
+  font-size: 26px;
+}
+.rank-row .rank-name {
+  font-weight: 600;
+  color: var(--text);
+}
+.rank-row .rank-label {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-left: auto;
+}
+
+.rank-bar {
+  height: 8px;
+  background: var(--surface2);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.rank-bar .fill {
+  height: 100%;
+  background: var(--gold);
+  width: 0;
+  transition: width 0.3s;
+}
+.rank-next {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 16px;
+  text-align: right;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.stat-tile {
+  background: var(--surface1);
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.stat-tile .v {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+.stat-tile .l {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.standing {
+  background: var(--surface1);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--accent2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.standing b {
+  font-size: 16px;
+}
+
+.hist-label {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.hist {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 90px;
+}
+.hist .col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+.hist .col .b {
+  width: 100%;
+  background: var(--accent2);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+}
+.hist .col.today .b {
+  background: var(--accent);
+}
+.hist .col .d {
+  font-size: 8px;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+.range-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.range-row button {
+  flex: 1;
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 6px 0;
+  border-radius: 6px;
+}
+.range-row button:hover {
+  color: var(--text-strong);
+}
+.range-row button.active {
+  background: var(--accent2);
+  color: #0b2545;
+  font-weight: 600;
+}
+
+/* 学習ログ ボタン（統計の左） */
+.log-btn {
+  position: fixed;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  right: 116px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--surface3);
+  color: var(--text-dim);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.log-btn:hover {
+  color: var(--text);
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.log-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface1);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.log-row .log-meta {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.log-row select {
+  margin-left: auto;
+  background: var(--surface2);
+  border: 1px solid var(--surface3);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 5px 6px;
+  max-width: 150px;
+  outline: none;
+}
+
+/* 休憩設定 */
+.break-settings {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 10px;
+  align-items: center;
+  margin-top: 16px;
+}
+.break-settings label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.break-settings input {
+  width: 64px;
+  background: var(--surface1);
+  border: 1px solid var(--surface3);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 7px 8px;
+  text-align: center;
+  outline: none;
+}
+.break-settings input:focus {
+  border-color: var(--accent2);
+}
+
+/* バックアップ */
+.backup-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+.btn-backup {
+  flex: 1;
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 9px 8px;
+  border-radius: 8px;
+}
+.btn-backup:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+/* メイン画面のランク章 */
+.rank-badge {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+.rank-badge .ico {
+  font-size: 16px;
+  vertical-align: -2px;
+}
+
+/* ランクアップ ポップアップ */
+.rankup-panel {
+  width: 300px;
+  max-width: 100%;
+  text-align: center;
+  padding: 28px 24px 22px;
+}
+.rankup-ico {
+  font-size: 64px;
+  line-height: 1;
+}
+.rankup-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--gold);
+  margin-top: 10px;
+  letter-spacing: 1px;
+}
+.rankup-name {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 4px 0 20px;
+}
+.rankup-dont {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-bottom: 18px;
+  cursor: pointer;
+}
+.rankup-dont input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent2);
+}
+.rankup-panel .btn-close {
+  width: 100%;
+}
+
+/* パネルを長くなってもスクロール可能に */
+.settings .panel {
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+/* 設定の汎用行（目標・音・演出） */
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.opt-row > span.lbl {
+  flex-shrink: 0;
+  min-width: 72px;
+}
+.opt-row select,
+.opt-row input[type='number'] {
+  background: var(--surface1);
+  border: 1px solid var(--surface3);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 7px 8px;
+  outline: none;
+}
+.opt-row input[type='number'] {
+  width: 60px;
+  text-align: center;
+}
+.opt-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+.opt-row input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+/* メイン：今日の目標 */
+.goal {
+  margin: 10px auto 0;
+  width: 210px;
+  max-width: 80%;
+}
+.goal .goal-text {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+}
+.goal .goal-text.done {
+  color: var(--accent);
+}
+.goal .goal-bar {
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 4px;
+  margin-top: 5px;
+  overflow: hidden;
+}
+.goal .goal-fill {
+  height: 100%;
+  background: var(--accent2);
+  width: 0;
+  transition: width 0.3s;
+}
+.goal .goal-fill.done {
+  background: var(--accent);
+}
+
+/* メイン：休憩中の次回予告＋tips */
+.break-info {
+  margin-top: 14px;
+  min-height: 1px;
+}
+.break-info .next {
+  font-size: 13px;
+  color: var(--accent2);
+}
+.break-info .tip {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+/* 昇格演出 */
+@keyframes lvPop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes lvBounce {
+  0% {
+    transform: scale(0.4);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+  72% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+#rankupOverlay.open .rankup-panel {
+  animation: lvPop 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
+}
+#rankupOverlay.open .rankup-ico {
+  display: inline-block;
+  animation: lvBounce 0.7s 0.08s both;
+}
+
+.sparkles,
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  display: none;
+}
+#rankupOverlay.fx-sparkle .sparkles {
+  display: block;
+}
+#rankupOverlay.fx-confetti .confetti {
+  display: block;
+}
+.sparkles span {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  opacity: 0;
+}
+#rankupOverlay.open.fx-sparkle .sparkles span {
+  animation: spark 0.85s ease-out both;
+}
+@keyframes spark {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(1);
+    opacity: 0;
+  }
+}
+.confetti span {
+  position: absolute;
+  top: -16px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0;
+}
+#rankupOverlay.open.fx-confetti .confetti span {
+  animation: conf 1.5s linear both;
+}
+@keyframes conf {
+  0% {
+    transform: translateY(-20px) rotate(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(420px) rotate(560deg);
+    opacity: 0.15;
+  }
+}
+
+/* オンボーディング */
+.ob-panel {
+  width: 320px;
+  max-width: 100%;
+  text-align: center;
+  padding: 30px 24px 22px;
+}
+.ob-ico {
+  font-size: 50px;
+  line-height: 1;
+}
+.ob-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 12px 0 8px;
+}
+.ob-body {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.7;
+  min-height: 52px;
+}
+.ob-dots {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+  margin: 18px 0;
+}
+.ob-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--surface3);
+}
+.ob-dots i.on {
+  background: var(--accent);
+}
+.ob-actions {
+  display: flex;
+  gap: 10px;
+}
+.ob-actions button {
+  flex: 1;
+  padding: 11px;
+  font-size: 13px;
+}
+.ob-skip {
+  background: var(--surface3);
+  color: var(--text-dim);
+}
+.ob-next {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+/* アクセント色スウォッチ */
+.accent-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.accent-row .sw {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  padding: 0;
+}
+.accent-row .sw.on {
+  border-color: var(--text);
+}
+
+/* アクセシビリティ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.bar:focus-visible {
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* レベルアップ トースト */
+.level-toast {
+  position: fixed;
+  top: calc(70px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  background: var(--surface2);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+.level-toast.show {
+  animation: lvtoast 1.8s ease both;
+}
+@keyframes lvtoast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
+
+/* 使い方リンク */
+.help-link {
+  text-align: center;
+  margin-top: 14px;
+}
+.help-link a {
+  color: var(--text-faint);
+  font-size: 11px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.help-link a:hover {
+  color: var(--accent);
+}
+
+/* 言語切替 */
+.lang {
+  position: fixed;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: 16px;
+  background: var(--surface3);
+  color: var(--text-dim);
+  border: none;
+  border-radius: 50px;
+  font-size: 13px;
+  padding: 9px 14px;
+  cursor: pointer;
+  outline: none;
+}
+.lang:hover {
+  color: var(--text-strong);
+}

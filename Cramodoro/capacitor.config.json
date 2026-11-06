@@ -1,0 +1,10 @@
+{
+  "appId": "com.rakimolabs.cramodoro",
+  "appName": "Cramodoro",
+  "webDir": "www",
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#4ecdc4"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cramodoro</string>
+    <string name="title_activity_main">Cramodoro</string>
+    <string name="package_name">com.rakimolabs.cramodoro</string>
+    <string name="custom_url_scheme">com.rakimolabs.cramodoro</string>
+</resources>

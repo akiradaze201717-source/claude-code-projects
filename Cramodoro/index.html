@@ -1,2328 +1,262 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cramodoro — 集中学習タイマー</title>
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0b2545">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Cramodoro">
-<link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" type="image/svg+xml" href="icon.svg">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  /* ===== テーマ（配色をCSS変数化）===== */
-  :root {
-    --bg: #0b2545; --bg-focus: #1a1a2e; --panel: #13132a;
-    --surface1: #1c1c34; --surface2: #23233f; --surface3: #2a2a4a;
-    --surface-hover: #2f2f54; --chip-del: #3a3a5e; --border: #2a2a4a;
-    --text: #eee; --text-strong: #fff; --text-dim: #aab; --text-faint: #777;
-    --accent: #4ecdc4; --accent2: #6aa9e0; --on-accent: #0b2545; --gold: #f5a623;
-  }
-  body.light {
-    --bg: #eef1f7; --bg-focus: #e6e9f2; --panel: #ffffff;
-    --surface1: #f0f2f7; --surface2: #e7eaf2; --surface3: #dfe3ec;
-    --surface-hover: #d2d7e4; --chip-del: #cdd3e1; --border: #d7dbe6;
-    --text: #1c2233; --text-strong: #0d1220; --text-dim: #5a6478; --text-faint: #99a0b0;
-    --on-accent: #0b2545;
-  }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.6s ease, color 0.3s ease;
-  }
-
-  /* 集中タイマーが動いている時だけ色を変える */
-  body.focusing {
-    background: var(--bg-focus);
-  }
-
-  .container {
-    text-align: center;
-    width: 340px;
-  }
-
-  .mode-label {
-    font-size: 13px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 32px;
-    height: 16px;
-    transition: color 0.4s;
-  }
-
-  .mode-label.break { color: var(--accent2); }
-
-  .ring-wrapper {
-    position: relative;
-    width: 260px;
-    height: 260px;
-    margin: 0 auto 36px;
-  }
-
-  svg.ring {
-    transform: rotate(-90deg);
-    width: 260px;
-    height: 260px;
-  }
-
-  circle.track {
-    fill: none;
-    stroke: var(--surface3);
-    stroke-width: 8;
-  }
-
-  circle.progress {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 8;
-    stroke-linecap: round;
-    stroke-dasharray: 722;
-    stroke-dashoffset: 0;
-    transition: stroke-dashoffset 1s linear, stroke 0.4s;
-  }
-
-  circle.progress.break { stroke: var(--accent2); }
-
-  .time-display {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .time {
-    font-size: 64px;
-    font-weight: 200;
-    letter-spacing: -2px;
-    line-height: 1;
-  }
-
-  .sessions {
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--text-faint);
-    letter-spacing: 1px;
-  }
-
-  .controls {
-    display: flex;
-    gap: 16px;
-    justify-content: center;
-    align-items: center;
-  }
-
-  button {
-    cursor: pointer;
-    border: none;
-    border-radius: 50px;
-    font-size: 14px;
-    letter-spacing: 1px;
-    transition: transform 0.1s, opacity 0.2s;
-  }
-
-  button:active { transform: scale(0.96); }
-
-  .btn-main {
-    background: var(--accent);
-    color: var(--text-strong);
-    padding: 14px 48px;
-    font-size: 15px;
-    font-weight: 600;
-  }
-
-  .btn-main.break { background: var(--accent2); }
-
-  .btn-icon {
-    background: var(--surface3);
-    color: var(--text-dim);
-    width: 44px;
-    height: 44px;
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-  }
-
-  .btn-icon:hover { color: var(--text); }
-
-  .count {
-    margin-top: 28px;
-    font-size: 13px;
-    letter-spacing: 1px;
-    color: var(--text-faint);
-    cursor: pointer;
-    user-select: none;
-    transition: color 0.2s;
-  }
-
-  .count:hover { color: var(--text-dim); }
-
-  .count b {
-    color: var(--accent);
-    font-weight: 600;
-    font-size: 16px;
-  }
-
-  /* ===== 設定（確率分布エディタ） ===== */
-  .gear {
-    position: fixed;
-    top: 16px;
-    right: 16px;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: var(--surface3);
-    color: var(--text-dim);
-    font-size: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .gear:hover { color: var(--text); }
-
-  .settings {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 20;
-    padding: 16px;
-  }
-  .settings.open { display: flex; }
-
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--surface3);
-    border-radius: 16px;
-    padding: 22px 22px 18px;
-    width: 360px;
-    max-width: 100%;
-  }
-
-  .panel h2 {
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    margin-bottom: 4px;
-    color: var(--text);
-  }
-
-  .panel .hint {
-    font-size: 11px;
-    color: var(--text-faint);
-    margin-bottom: 16px;
-    line-height: 1.5;
-  }
-
-  .panel .mean {
-    font-size: 13px;
-    color: var(--accent2);
-    margin-bottom: 10px;
-    min-height: 18px;
-  }
-
-  .bars {
-    position: relative;
-    height: 150px;
-    display: flex;
-    gap: 3px;
-    touch-action: none;
-    user-select: none;
-    padding-top: 6px;
-  }
-
-  .bar {
-    flex: 1;
-    position: relative;
-    background: var(--surface2);
-    border-radius: 4px;
-    overflow: hidden;
-    cursor: ns-resize;
-  }
-
-  .bar .fill {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--accent);
-    transition: height 0.05s linear;
-  }
-
-  .bar-labels {
-    display: flex;
-    gap: 3px;
-    margin-top: 6px;
-  }
-  .bar-labels span {
-    flex: 1;
-    text-align: center;
-    font-size: 9px;
-    color: var(--text-faint);
-  }
-
-  .panel-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 20px;
-  }
-  .panel-actions button {
-    padding: 10px 20px;
-    font-size: 13px;
-  }
-  .btn-reset-dist { background: var(--surface3); color: var(--text-dim); }
-  .btn-close { background: var(--accent); color: var(--text-strong); font-weight: 600; }
-
-  .presets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-    margin-bottom: 14px;
-  }
-  .presets-label {
-    font-size: 11px;
-    color: var(--text-faint);
-    width: 100%;
-    margin-bottom: 2px;
-  }
-  .presets button {
-    background: var(--surface2);
-    color: var(--text-dim);
-    padding: 7px 12px;
-    font-size: 12px;
-    border-radius: 8px;
-  }
-  .presets button:hover { color: var(--text-strong); background: var(--surface-hover); }
-  .presets button.custom { color: var(--accent2); }
-  .presets button.custom:disabled {
-    color: var(--text-faint);
-    background: var(--surface1);
-    cursor: default;
-  }
-
-  .save-row {
-    margin-top: 16px;
-    display: flex;
-    gap: 8px;
-  }
-  .save-row input {
-    flex: 1;
-    background: var(--surface1);
-    border: 1px solid var(--surface3);
-    border-radius: 8px;
-    color: var(--text);
-    font-size: 13px;
-    padding: 9px 12px;
-    outline: none;
-  }
-  .save-row input::placeholder { color: var(--text-faint); }
-  .save-row input:focus { border-color: var(--accent2); }
-  .save-row .btn-save-custom {
-    background: var(--accent2);
-    color: #0b2545;
-    font-weight: 600;
-    font-size: 13px;
-    padding: 9px 16px;
-    white-space: nowrap;
-  }
-
-  .custom-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
-    min-height: 4px;
-  }
-  .custom-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--surface2);
-    border-radius: 20px;
-    padding: 5px 6px 5px 12px;
-    font-size: 12px;
-    color: var(--text-dim);
-  }
-  .custom-chip .name { cursor: pointer; }
-  .custom-chip .name:hover { color: var(--text-strong); }
-  .custom-chip .del {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--chip-del);
-    color: var(--text-dim);
-    font-size: 12px;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-  }
-  .custom-chip .del:hover { background: var(--accent); color: var(--text-strong); }
-  .custom-empty {
-    font-size: 11px;
-    color: var(--text-faint);
-  }
-
-  /* 休憩中だけ出る静的バナー枠。Proで非表示。
-     ★方針: 動画広告は差し込まない（インタースティシャル/全画面/リワード動画は使用しない）。
-       Phase 2 でも AdMob は「バナー（静的）」ユニットのみ。 */
-  .ad-slot {
-    display: none;
-    margin: 24px auto 0;
-    width: 300px;
-    max-width: 100%;
-    height: 70px;
-    border: 1px dashed var(--surface3);
-    border-radius: 10px;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-faint);
-    font-size: 12px;
-    letter-spacing: 1px;
-    position: relative;
-  }
-  .ad-slot .ad-tag {
-    position: absolute;
-    top: 4px;
-    left: 8px;
-    font-size: 9px;
-    color: var(--text-faint);
-  }
-
-  /* Pro / アップグレード枠 */
-  .pro-box {
-    margin-top: 18px;
-    padding: 12px 14px;
-    border: 1px solid var(--surface3);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-  .pro-box.active { border-color: var(--accent2); }
-  .pro-box.flash { border-color: var(--accent); }
-  .pro-status { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
-  .pro-box.active .pro-status { color: var(--accent2); }
-  .pro-box.flash .pro-status { color: var(--accent); }
-  .btn-pro {
-    background: var(--gold);
-    color: #2a1a00;
-    font-weight: 600;
-    font-size: 12px;
-    padding: 9px 14px;
-    white-space: nowrap;
-  }
-
-  /* 統計ボタン（歯車の左） */
-  .stats-btn {
-    position: fixed;
-    top: 16px;
-    right: 66px;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: var(--surface3);
-    color: var(--text-dim);
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .stats-btn:hover { color: var(--text); }
-
-  /* ランク表示 */
-  .rank-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 18px;
-    margin-bottom: 8px;
-  }
-  .rank-row .rank-ico { font-size: 26px; }
-  .rank-row .rank-name { font-weight: 600; color: var(--text); }
-  .rank-row .rank-label { font-size: 11px; color: var(--text-faint); margin-left: auto; }
-
-  .rank-bar {
-    height: 8px;
-    background: var(--surface2);
-    border-radius: 5px;
-    overflow: hidden;
-    margin-bottom: 4px;
-  }
-  .rank-bar .fill { height: 100%; background: var(--gold); width: 0; transition: width 0.3s; }
-  .rank-next { font-size: 11px; color: var(--text-faint); margin-bottom: 16px; text-align: right; }
-
-  .stat-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .stat-tile {
-    background: var(--surface1);
-    border-radius: 8px;
-    padding: 10px 8px;
-    text-align: center;
-  }
-  .stat-tile .v { font-size: 20px; font-weight: 600; color: var(--text); }
-  .stat-tile .l { font-size: 10px; color: var(--text-faint); margin-top: 2px; }
-
-  .standing {
-    background: var(--surface1);
-    border: 1px solid var(--accent);
-    border-radius: 10px;
-    padding: 10px 12px;
-    margin-bottom: 16px;
-    font-size: 13px;
-    color: var(--accent2);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .standing b { font-size: 16px; }
-
-  .hist-label { font-size: 11px; color: var(--text-faint); margin-bottom: 6px; }
-  .hist {
-    display: flex;
-    gap: 3px;
-    align-items: flex-end;
-    height: 90px;
-  }
-  .hist .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
-  .hist .col .b {
-    width: 100%;
-    background: var(--accent2);
-    border-radius: 3px 3px 0 0;
-    min-height: 2px;
-  }
-  .hist .col.today .b { background: var(--accent); }
-  .hist .col .d { font-size: 8px; color: var(--text-faint); margin-top: 3px; }
-
-  .range-row { display: flex; gap: 4px; margin-bottom: 8px; }
-  .range-row button { flex: 1; background: var(--surface2); color: var(--text-dim); font-size: 11px; padding: 6px 0; border-radius: 6px; }
-  .range-row button:hover { color: var(--text-strong); }
-  .range-row button.active { background: var(--accent2); color: #0b2545; font-weight: 600; }
-
-  /* 学習ログ ボタン（統計の左） */
-  .log-btn {
-    position: fixed;
-    top: 16px;
-    right: 116px;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: var(--surface3);
-    color: var(--text-dim);
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .log-btn:hover { color: var(--text); }
-
-  .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
-  .log-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface1);
-    border-radius: 8px;
-    padding: 7px 10px;
-  }
-  .log-row .log-meta { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
-  .log-row select {
-    margin-left: auto;
-    background: var(--surface2);
-    border: 1px solid var(--surface3);
-    border-radius: 6px;
-    color: var(--text-dim);
-    font-size: 12px;
-    padding: 5px 6px;
-    max-width: 150px;
-    outline: none;
-  }
-
-  /* 休憩設定 */
-  .break-settings {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 8px 10px;
-    align-items: center;
-    margin-top: 16px;
-  }
-  .break-settings label { font-size: 12px; color: var(--text-dim); }
-  .break-settings input {
-    width: 64px;
-    background: var(--surface1);
-    border: 1px solid var(--surface3);
-    border-radius: 8px;
-    color: var(--text);
-    font-size: 13px;
-    padding: 7px 8px;
-    text-align: center;
-    outline: none;
-  }
-  .break-settings input:focus { border-color: var(--accent2); }
-
-  /* バックアップ */
-  .backup-row { display: flex; gap: 8px; margin-top: 16px; }
-  .btn-backup { flex: 1; background: var(--surface2); color: var(--text-dim); font-size: 12px; padding: 9px 8px; border-radius: 8px; }
-  .btn-backup:hover { background: var(--surface-hover); color: var(--text-strong); }
-
-  /* メイン画面のランク章 */
-  .rank-badge { margin-top: 10px; font-size: 13px; color: var(--text-dim); letter-spacing: 0.5px; }
-  .rank-badge .ico { font-size: 16px; vertical-align: -2px; }
-
-  /* ランクアップ ポップアップ */
-  .rankup-panel { width: 300px; max-width: 100%; text-align: center; padding: 28px 24px 22px; }
-  .rankup-ico { font-size: 64px; line-height: 1; }
-  .rankup-title { font-size: 18px; font-weight: 600; color: var(--gold); margin-top: 10px; letter-spacing: 1px; }
-  .rankup-name { font-size: 22px; font-weight: 600; color: var(--text); margin: 4px 0 20px; }
-  .rankup-dont { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 12px; color: var(--text-faint); margin-bottom: 18px; cursor: pointer; }
-  .rankup-dont input { width: 15px; height: 15px; accent-color: var(--accent2); }
-  .rankup-panel .btn-close { width: 100%; }
-
-  /* パネルを長くなってもスクロール可能に */
-  .settings .panel { max-height: 88vh; overflow-y: auto; }
-
-  /* 設定の汎用行（目標・音・演出） */
-  .opt-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 12px; color: var(--text-dim); }
-  .opt-row > span.lbl { flex-shrink: 0; min-width: 72px; }
-  .opt-row select, .opt-row input[type=number] { background: var(--surface1); border: 1px solid var(--surface3); border-radius: 8px; color: var(--text); font-size: 13px; padding: 7px 8px; outline: none; }
-  .opt-row input[type=number] { width: 60px; text-align: center; }
-  .opt-row input[type=range] { flex: 1; accent-color: var(--accent); }
-  .opt-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
-
-  /* メイン：今日の目標 */
-  .goal { margin: 10px auto 0; width: 210px; max-width: 80%; }
-  .goal .goal-text { font-size: 12px; color: var(--text-dim); text-align: center; }
-  .goal .goal-text.done { color: var(--accent); }
-  .goal .goal-bar { height: 6px; background: var(--surface2); border-radius: 4px; margin-top: 5px; overflow: hidden; }
-  .goal .goal-fill { height: 100%; background: var(--accent2); width: 0; transition: width 0.3s; }
-  .goal .goal-fill.done { background: var(--accent); }
-
-  /* メイン：休憩中の次回予告＋tips */
-  .break-info { margin-top: 14px; min-height: 1px; }
-  .break-info .next { font-size: 13px; color: var(--accent2); }
-  .break-info .tip { font-size: 12px; color: var(--text-faint); margin-top: 3px; }
-
-  /* 昇格演出 */
-  @keyframes lvPop { 0% { transform: scale(.7); opacity: 0; } 60% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
-  @keyframes lvBounce { 0% { transform: scale(.4); } 50% { transform: scale(1.25); } 72% { transform: scale(.92); } 100% { transform: scale(1); } }
-  #rankupOverlay.open .rankup-panel { animation: lvPop .45s cubic-bezier(.2,.8,.3,1.2) both; }
-  #rankupOverlay.open .rankup-ico { display: inline-block; animation: lvBounce .7s .08s both; }
-
-  .sparkles, .confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; display: none; }
-  #rankupOverlay.fx-sparkle .sparkles { display: block; }
-  #rankupOverlay.fx-confetti .confetti { display: block; }
-  .sparkles span { position: absolute; left: 50%; top: 44%; width: 11px; height: 11px; border-radius: 2px; opacity: 0; }
-  #rankupOverlay.open.fx-sparkle .sparkles span { animation: spark .85s ease-out both; }
-  @keyframes spark { 0% { transform: translate(-50%,-50%) scale(.2); opacity: 0; } 25% { opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(1); opacity: 0; } }
-  .confetti span { position: absolute; top: -16px; width: 8px; height: 14px; border-radius: 2px; opacity: 0; }
-  #rankupOverlay.open.fx-confetti .confetti span { animation: conf 1.5s linear both; }
-  @keyframes conf { 0% { transform: translateY(-20px) rotate(0); opacity: 0; } 12% { opacity: 1; } 100% { transform: translateY(420px) rotate(560deg); opacity: .15; } }
-
-  /* オンボーディング */
-  .ob-panel { width: 320px; max-width: 100%; text-align: center; padding: 30px 24px 22px; }
-  .ob-ico { font-size: 50px; line-height: 1; }
-  .ob-title { font-size: 18px; font-weight: 600; color: var(--text); margin: 12px 0 8px; }
-  .ob-body { font-size: 13px; color: var(--text-dim); line-height: 1.7; min-height: 52px; }
-  .ob-dots { display: flex; gap: 7px; justify-content: center; margin: 18px 0; }
-  .ob-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--surface3); }
-  .ob-dots i.on { background: var(--accent); }
-  .ob-actions { display: flex; gap: 10px; }
-  .ob-actions button { flex: 1; padding: 11px; font-size: 13px; }
-  .ob-skip { background: var(--surface3); color: var(--text-dim); }
-  .ob-next { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-
-  /* アクセント色スウォッチ */
-  .accent-row { display: flex; gap: 10px; align-items: center; }
-  .accent-row .sw { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; padding: 0; }
-  .accent-row .sw.on { border-color: var(--text); }
-
-  /* アクセシビリティ */
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .bar:focus-visible { outline-offset: -2px; }
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
-  }
-
-  /* レベルアップ トースト */
-  .level-toast {
-    position: fixed; top: 70px; left: 50%;
-    background: var(--surface2); color: var(--accent);
-    border: 1px solid var(--accent);
-    padding: 8px 18px; border-radius: 20px;
-    font-size: 14px; font-weight: 600; letter-spacing: 1px;
-    opacity: 0; pointer-events: none; z-index: 30;
-  }
-  .level-toast.show { animation: lvtoast 1.8s ease both; }
-  @keyframes lvtoast {
-    0% { opacity: 0; transform: translate(-50%, 10px) scale(.9); }
-    15% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-    80% { opacity: 1; transform: translate(-50%, 0); }
-    100% { opacity: 0; transform: translate(-50%, -8px); }
-  }
-
-  /* 使い方リンク */
-  .help-link { text-align: center; margin-top: 14px; }
-  .help-link a { color: var(--text-faint); font-size: 11px; cursor: pointer; text-decoration: underline; }
-  .help-link a:hover { color: var(--accent); }
-
-  /* 言語切替 */
-  .lang {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    background: var(--surface3);
-    color: var(--text-dim);
-    border: none;
-    border-radius: 50px;
-    font-size: 13px;
-    padding: 9px 14px;
-    cursor: pointer;
-    outline: none;
-  }
-  .lang:hover { color: var(--text-strong); }
-</style>
-</head>
-<body>
-<select class="lang" id="langSelect" title="Language">
-  <option value="ja">日本語</option>
-  <option value="en">English</option>
-  <option value="zh">中文（简体）</option>
-  <option value="zhHant">中文（繁體）</option>
-  <option value="ko">한국어</option>
-  <option value="es">Español</option>
-  <option value="pt">Português</option>
-  <option value="tr">Türkçe</option>
-  <option value="th">ไทย</option>
-  <option value="vi">Tiếng Việt</option>
-</select>
-
-<div class="container">
-  <div class="mode-label" id="modeLabel">集中</div>
-
-  <div class="ring-wrapper">
-    <svg class="ring" viewBox="0 0 260 260">
-      <circle class="track" cx="130" cy="130" r="115"/>
-      <circle class="progress" id="progressRing" cx="130" cy="130" r="115"/>
-    </svg>
-    <div class="time-display">
-      <div class="time" id="timeDisplay">25:00</div>
-      <div class="sessions" id="sessionsDisplay">セッション 1</div>
-    </div>
-  </div>
-
-  <div class="controls">
-    <button class="btn-icon" id="resetBtn" title="リセット">↺</button>
-    <button class="btn-main" id="startBtn">スタート</button>
-    <button class="btn-icon" id="skipBtn" title="スキップ">⏭</button>
-  </div>
-
-  <!-- 休憩中だけ：次回予告＋tips -->
-  <div class="break-info" id="breakInfo"></div>
-
-  <div class="count" id="countDisplay">完了 0 回</div>
-  <div class="rank-badge" id="rankBadge"></div>
-  <!-- 今日の目標 -->
-  <div class="goal" id="goalDisplay"></div>
-
-  <!-- 広告枠：休憩中のみ表示。Phase 2 で AdMob「バナー(静的)」のみ差し込む。動画広告は差し込まない。 -->
-  <div class="ad-slot" id="adSlot">
-    <span class="ad-tag" data-i18n="ad">広告</span>
-  </div>
-</div>
-
-<div class="level-toast" id="levelToast"></div>
-<button class="log-btn" id="logBtn" title="学習ログ">📒</button>
-<button class="stats-btn" id="statsBtn" title="統計">📊</button>
-<button class="gear" id="gearBtn" title="設定">⚙</button>
-
-<div class="settings" id="statsOverlay">
-  <div class="panel">
-    <h2 data-i18n="statsTitle">統計</h2>
-    <div class="rank-row">
-      <span class="rank-ico" id="rankIco">🌱</span>
-      <span class="rank-name" id="rankName">Rookie</span>
-      <span class="rank-label" data-i18n="rank">ランク</span>
-    </div>
-    <div class="rank-bar"><div class="fill" id="rankFill"></div></div>
-    <div class="rank-next" id="rankNext"></div>
-
-    <div class="stat-grid" id="statGrid"></div>
-
-    <div class="standing">
-      <span data-i18n="standing">推定の立ち位置</span>
-      <b id="standingVal">—</b>
-    </div>
-
-    <div class="range-row" id="rangeRow">
-      <button data-range="7d">7D</button>
-      <button data-range="14d">14D</button>
-      <button data-range="30d">30D</button>
-      <button data-range="6m">6M</button>
-      <button data-range="1y">1Y</button>
-      <button data-range="all">All</button>
-    </div>
-    <div class="hist" id="hist"></div>
-
-    <div class="hint" id="estNote" data-i18n="estNote" style="margin-top:14px;"></div>
-    <div class="panel-actions">
-      <button class="btn-close" id="closeStatsBtn" data-i18n="close">閉じる</button>
-    </div>
-  </div>
-</div>
-
-<div class="settings" id="settings">
-  <div class="panel">
-    <h2 data-i18n="distTitle">集中時間の確率分布</h2>
-    <div class="hint" data-i18n="hint">バーを上下にドラッグして、各時間（分）の出やすさを調整できます。範囲 1〜60 分・5分刻み。</div>
-    <div class="presets">
-      <span class="presets-label" data-i18n="presets">プリセット</span>
-      <button data-preset="p15" data-min="15"></button>
-      <button data-preset="p25" data-min="25"></button>
-      <button data-preset="p45" data-min="45"></button>
-      <button data-preset="p60" data-min="60"></button>
-    </div>
-    <div class="mean" id="distMean"></div>
-    <div class="bars" id="bars"></div>
-    <div class="bar-labels" id="barLabels"></div>
-    <div class="save-row">
-      <input id="customName" type="text" maxlength="20" data-i18n-ph="namePlaceholder">
-      <button class="btn-save-custom" id="saveCustomBtn" data-i18n="save">保存</button>
-    </div>
-    <div class="custom-list" id="customList"></div>
-
-    <div class="break-settings">
-      <label data-i18n="brkShort">短い休憩(分)</label><input type="number" id="brkShortInput" min="1" max="60" inputmode="numeric">
-      <label data-i18n="brkLong">長い休憩(分)</label><input type="number" id="brkLongInput" min="1" max="120" inputmode="numeric">
-      <label data-i18n="brkEvery">長休憩の間隔(回)</label><input type="number" id="brkEveryInput" min="1" max="12" inputmode="numeric">
-    </div>
-
-    <div class="opt-row">
-      <span class="lbl" data-i18n="goalLabel">今日の目標</span>
-      <select id="goalUnitSel"></select>
-      <input type="number" id="goalInput" min="1" max="999" inputmode="numeric">
-    </div>
-    <div class="opt-row">
-      <span class="lbl" data-i18n="sound">音</span>
-      <input type="checkbox" id="soundToggle">
-      <input type="range" id="volSlider" min="0" max="100" step="5">
-    </div>
-    <div class="opt-row">
-      <span class="lbl" data-i18n="levelupStyle">昇格演出</span>
-      <select id="levelupSel"></select>
-    </div>
-    <div class="opt-row">
-      <span class="lbl" data-i18n="theme">テーマ</span>
-      <select id="themeSel"></select>
-    </div>
-    <div class="opt-row">
-      <span class="lbl" data-i18n="accentLabel">アクセント</span>
-      <div class="accent-row" id="accentRow">
-        <button class="sw" data-accent="teal"   style="background:#4ecdc4"></button>
-        <button class="sw" data-accent="blue"   style="background:#5b8fe0"></button>
-        <button class="sw" data-accent="green"  style="background:#5cc28d"></button>
-        <button class="sw" data-accent="purple" style="background:#9b8cf0"></button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Cramodoro — 集中学習タイマー</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#0b2545" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Cramodoro" />
+    <link rel="apple-touch-icon" href="icon-180.png" />
+    <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <select class="lang" id="langSelect" title="Language">
+      <option value="ja">日本語</option>
+      <option value="en">English</option>
+      <option value="zh">中文（简体）</option>
+      <option value="zhHant">中文（繁體）</option>
+      <option value="ko">한국어</option>
+      <option value="es">Español</option>
+      <option value="pt">Português</option>
+      <option value="tr">Türkçe</option>
+      <option value="th">ไทย</option>
+      <option value="vi">Tiếng Việt</option>
+    </select>
+
+    <div class="container">
+      <div class="mode-label" id="modeLabel">集中</div>
+
+      <div class="ring-wrapper">
+        <svg class="ring" viewBox="0 0 260 260">
+          <circle class="track" cx="130" cy="130" r="115" />
+          <circle class="progress" id="progressRing" cx="130" cy="130" r="115" />
+        </svg>
+        <div class="time-display">
+          <div class="time" id="timeDisplay">25:00</div>
+          <div class="sessions" id="sessionsDisplay">セッション 1</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn-icon" id="resetBtn" title="リセット">↺</button>
+        <button class="btn-main" id="startBtn">スタート</button>
+        <button class="btn-icon" id="skipBtn" title="スキップ">⏭</button>
+      </div>
+
+      <!-- 休憩中だけ：次回予告＋tips -->
+      <div class="break-info" id="breakInfo"></div>
+
+      <div class="count" id="countDisplay">完了 0 回</div>
+      <div class="rank-badge" id="rankBadge"></div>
+      <!-- 今日の目標 -->
+      <div class="goal" id="goalDisplay"></div>
+
+      <!-- 広告枠：休憩中のみ表示。Phase 2 で AdMob「バナー(静的)」のみ差し込む。動画広告は差し込まない。 -->
+      <div class="ad-slot" id="adSlot">
+        <span class="ad-tag" data-i18n="ad">広告</span>
       </div>
     </div>
 
-    <div class="pro-box" id="proBox">
-      <span class="pro-status" id="proStatus"></span>
-      <button class="btn-pro" id="getProBtn" data-i18n="proGet">Proを入手</button>
+    <div class="level-toast" id="levelToast"></div>
+    <button class="log-btn" id="logBtn" title="学習ログ">📒</button>
+    <button class="stats-btn" id="statsBtn" title="統計">📊</button>
+    <button class="gear" id="gearBtn" title="設定">⚙</button>
+
+    <div class="settings" id="statsOverlay">
+      <div class="panel">
+        <h2 data-i18n="statsTitle">統計</h2>
+        <div class="rank-row">
+          <span class="rank-ico" id="rankIco">🌱</span>
+          <span class="rank-name" id="rankName">Rookie</span>
+          <span class="rank-label" data-i18n="rank">ランク</span>
+        </div>
+        <div class="rank-bar"><div class="fill" id="rankFill"></div></div>
+        <div class="rank-next" id="rankNext"></div>
+
+        <div class="stat-grid" id="statGrid"></div>
+
+        <div class="standing">
+          <span data-i18n="standing">推定の立ち位置</span>
+          <b id="standingVal">—</b>
+        </div>
+
+        <div class="range-row" id="rangeRow">
+          <button data-range="7d">7D</button>
+          <button data-range="14d">14D</button>
+          <button data-range="30d">30D</button>
+          <button data-range="6m">6M</button>
+          <button data-range="1y">1Y</button>
+          <button data-range="all">All</button>
+        </div>
+        <div class="hist" id="hist"></div>
+
+        <div class="hint" id="estNote" data-i18n="estNote" style="margin-top: 14px"></div>
+        <div class="panel-actions">
+          <button class="btn-close" id="closeStatsBtn" data-i18n="close">閉じる</button>
+        </div>
+      </div>
     </div>
 
-    <div class="backup-row">
-      <button class="btn-backup" id="exportBtn" data-i18n="exportBtn">バックアップ書き出し</button>
-      <button class="btn-backup" id="importBtn" data-i18n="importBtn">バックアップ読み込み</button>
-      <input type="file" id="importFile" accept="application/json" style="display:none">
+    <div class="settings" id="settings">
+      <div class="panel">
+        <h2 data-i18n="distTitle">集中時間の確率分布</h2>
+        <div class="hint" data-i18n="hint">
+          バーを上下にドラッグして、各時間（分）の出やすさを調整できます。範囲 1〜60 分・5分刻み。
+        </div>
+        <div class="presets">
+          <span class="presets-label" data-i18n="presets">プリセット</span>
+          <button data-preset="p15" data-min="15"></button>
+          <button data-preset="p25" data-min="25"></button>
+          <button data-preset="p45" data-min="45"></button>
+          <button data-preset="p60" data-min="60"></button>
+        </div>
+        <div class="mean" id="distMean"></div>
+        <div class="bars" id="bars"></div>
+        <div class="bar-labels" id="barLabels"></div>
+        <div class="save-row">
+          <input id="customName" type="text" maxlength="20" data-i18n-ph="namePlaceholder" />
+          <button class="btn-save-custom" id="saveCustomBtn" data-i18n="save">保存</button>
+        </div>
+        <div class="custom-list" id="customList"></div>
+
+        <div class="break-settings">
+          <label data-i18n="brkShort">短い休憩(分)</label
+          ><input type="number" id="brkShortInput" min="1" max="60" inputmode="numeric" />
+          <label data-i18n="brkLong">長い休憩(分)</label
+          ><input type="number" id="brkLongInput" min="1" max="120" inputmode="numeric" />
+          <label data-i18n="brkEvery">長休憩の間隔(回)</label
+          ><input type="number" id="brkEveryInput" min="1" max="12" inputmode="numeric" />
+        </div>
+
+        <div class="opt-row">
+          <span class="lbl" data-i18n="goalLabel">今日の目標</span>
+          <select id="goalUnitSel"></select>
+          <input type="number" id="goalInput" min="1" max="999" inputmode="numeric" />
+        </div>
+        <div class="opt-row">
+          <span class="lbl" data-i18n="sound">音</span>
+          <input type="checkbox" id="soundToggle" />
+          <input type="range" id="volSlider" min="0" max="100" step="5" />
+        </div>
+        <div class="opt-row">
+          <span class="lbl" data-i18n="levelupStyle">昇格演出</span>
+          <select id="levelupSel"></select>
+        </div>
+        <div class="opt-row">
+          <span class="lbl" data-i18n="theme">テーマ</span>
+          <select id="themeSel"></select>
+        </div>
+        <div class="opt-row">
+          <span class="lbl" data-i18n="accentLabel">アクセント</span>
+          <div class="accent-row" id="accentRow">
+            <button class="sw" data-accent="teal" style="background: #4ecdc4"></button>
+            <button class="sw" data-accent="blue" style="background: #5b8fe0"></button>
+            <button class="sw" data-accent="green" style="background: #5cc28d"></button>
+            <button class="sw" data-accent="purple" style="background: #9b8cf0"></button>
+          </div>
+        </div>
+
+        <div class="pro-box" id="proBox">
+          <span class="pro-status" id="proStatus"></span>
+          <button class="btn-pro" id="getProBtn" data-i18n="proGet">Proを入手</button>
+        </div>
+
+        <div class="backup-row">
+          <button class="btn-backup" id="exportBtn" data-i18n="exportBtn">
+            バックアップ書き出し
+          </button>
+          <button class="btn-backup" id="importBtn" data-i18n="importBtn">
+            バックアップ読み込み
+          </button>
+          <input type="file" id="importFile" accept="application/json" style="display: none" />
+        </div>
+
+        <div class="panel-actions">
+          <button class="btn-reset-dist" id="resetDistBtn" data-i18n="resetDefault">
+            既定に戻す
+          </button>
+          <button class="btn-close" id="closeSettingsBtn" data-i18n="close">閉じる</button>
+        </div>
+        <div class="help-link">
+          <a id="helpLink" data-i18n="help">使い方</a>
+          <span style="color: var(--text-faint)"> · </span>
+          <a id="privacyLink" href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy"
+            >プライバシーポリシー</a
+          >
+        </div>
+      </div>
     </div>
 
-    <div class="panel-actions">
-      <button class="btn-reset-dist" id="resetDistBtn" data-i18n="resetDefault">既定に戻す</button>
-      <button class="btn-close" id="closeSettingsBtn" data-i18n="close">閉じる</button>
+    <div class="settings" id="onboardOverlay">
+      <div class="panel ob-panel">
+        <div class="ob-ico" id="obIco">🍅</div>
+        <div class="ob-title" id="obTitle"></div>
+        <div class="ob-body" id="obBody"></div>
+        <div class="ob-dots" id="obDots"></div>
+        <div class="ob-actions">
+          <button class="ob-skip" id="obSkipBtn" data-i18n="obSkip">スキップ</button>
+          <button class="ob-next" id="obNextBtn"></button>
+        </div>
+      </div>
     </div>
-    <div class="help-link">
-      <a id="helpLink" data-i18n="help">使い方</a>
-      <span style="color:var(--text-faint);"> · </span>
-      <a id="privacyLink" href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">プライバシーポリシー</a>
+
+    <div class="settings" id="logOverlay">
+      <div class="panel">
+        <h2 data-i18n="logTitle">学習ログ</h2>
+        <div class="hint" data-i18n="subjectsLabel" style="margin-top: 6px">科目</div>
+        <div class="save-row">
+          <input id="subjectName" type="text" maxlength="20" data-i18n-ph="subjectPh" />
+          <button class="btn-save-custom" id="addSubjectBtn">＋</button>
+        </div>
+        <div class="custom-list" id="subjectList"></div>
+        <div class="hint" data-i18n="historyLabel" style="margin-top: 18px">履歴</div>
+        <div class="log-list" id="logList"></div>
+        <div class="panel-actions">
+          <button class="btn-close" id="closeLogBtn" data-i18n="close">閉じる</button>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
-<div class="settings" id="onboardOverlay">
-  <div class="panel ob-panel">
-    <div class="ob-ico" id="obIco">🍅</div>
-    <div class="ob-title" id="obTitle"></div>
-    <div class="ob-body" id="obBody"></div>
-    <div class="ob-dots" id="obDots"></div>
-    <div class="ob-actions">
-      <button class="ob-skip" id="obSkipBtn" data-i18n="obSkip">スキップ</button>
-      <button class="ob-next" id="obNextBtn"></button>
+    <div class="settings" id="rankupOverlay">
+      <div class="sparkles" aria-hidden="true">
+        <span style="--tx: -120px; --ty: -70px; background: #ffe08a"></span>
+        <span style="--tx: 120px; --ty: -70px; background: var(--accent)"></span>
+        <span style="--tx: -150px; --ty: 20px; background: var(--accent2)"></span>
+        <span style="--tx: 150px; --ty: 20px; background: #ffe08a"></span>
+        <span style="--tx: -80px; --ty: -130px; background: var(--accent2)"></span>
+        <span style="--tx: 80px; --ty: -130px; background: var(--accent)"></span>
+        <span style="--tx: -40px; --ty: 120px; background: #ffe08a"></span>
+        <span style="--tx: 40px; --ty: 120px; background: var(--accent2)"></span>
+      </div>
+      <div class="confetti" aria-hidden="true">
+        <span style="left: 12%; background: var(--accent); animation-delay: 0s"></span>
+        <span style="left: 22%; background: #ffe08a; animation-delay: 0.15s"></span>
+        <span style="left: 33%; background: var(--accent2); animation-delay: 0.05s"></span>
+        <span style="left: 44%; background: var(--accent); animation-delay: 0.25s"></span>
+        <span style="left: 55%; background: #ffe08a; animation-delay: 0.1s"></span>
+        <span style="left: 66%; background: var(--accent2); animation-delay: 0.3s"></span>
+        <span style="left: 77%; background: var(--accent); animation-delay: 0.18s"></span>
+        <span style="left: 88%; background: #ffe08a; animation-delay: 0.08s"></span>
+        <span style="left: 28%; background: var(--accent2); animation-delay: 0.35s"></span>
+        <span style="left: 60%; background: var(--accent); animation-delay: 0.42s"></span>
+      </div>
+      <div class="panel rankup-panel">
+        <div class="rankup-ico" id="rankupIco">🥉</div>
+        <div class="rankup-title" data-i18n="rankUp">ランクアップ！</div>
+        <div class="rankup-name" id="rankupName">Bronze</div>
+        <label class="rankup-dont"
+          ><input type="checkbox" id="rankupDont" />
+          <span data-i18n="dontShowAgain">今後この画面を表示しない</span></label
+        >
+        <button class="btn-close" id="rankupCloseBtn" data-i18n="close">閉じる</button>
+      </div>
     </div>
-  </div>
-</div>
 
-<div class="settings" id="logOverlay">
-  <div class="panel">
-    <h2 data-i18n="logTitle">学習ログ</h2>
-    <div class="hint" data-i18n="subjectsLabel" style="margin-top:6px;">科目</div>
-    <div class="save-row">
-      <input id="subjectName" type="text" maxlength="20" data-i18n-ph="subjectPh">
-      <button class="btn-save-custom" id="addSubjectBtn">＋</button>
-    </div>
-    <div class="custom-list" id="subjectList"></div>
-    <div class="hint" data-i18n="historyLabel" style="margin-top:18px;">履歴</div>
-    <div class="log-list" id="logList"></div>
-    <div class="panel-actions">
-      <button class="btn-close" id="closeLogBtn" data-i18n="close">閉じる</button>
-    </div>
-  </div>
-</div>
-
-<div class="settings" id="rankupOverlay">
-  <div class="sparkles" aria-hidden="true">
-    <span style="--tx:-120px;--ty:-70px;background:#ffe08a"></span>
-    <span style="--tx:120px;--ty:-70px;background:var(--accent)"></span>
-    <span style="--tx:-150px;--ty:20px;background:var(--accent2)"></span>
-    <span style="--tx:150px;--ty:20px;background:#ffe08a"></span>
-    <span style="--tx:-80px;--ty:-130px;background:var(--accent2)"></span>
-    <span style="--tx:80px;--ty:-130px;background:var(--accent)"></span>
-    <span style="--tx:-40px;--ty:120px;background:#ffe08a"></span>
-    <span style="--tx:40px;--ty:120px;background:var(--accent2)"></span>
-  </div>
-  <div class="confetti" aria-hidden="true">
-    <span style="left:12%;background:var(--accent);animation-delay:0s"></span>
-    <span style="left:22%;background:#ffe08a;animation-delay:.15s"></span>
-    <span style="left:33%;background:var(--accent2);animation-delay:.05s"></span>
-    <span style="left:44%;background:var(--accent);animation-delay:.25s"></span>
-    <span style="left:55%;background:#ffe08a;animation-delay:.1s"></span>
-    <span style="left:66%;background:var(--accent2);animation-delay:.3s"></span>
-    <span style="left:77%;background:var(--accent);animation-delay:.18s"></span>
-    <span style="left:88%;background:#ffe08a;animation-delay:.08s"></span>
-    <span style="left:28%;background:var(--accent2);animation-delay:.35s"></span>
-    <span style="left:60%;background:var(--accent);animation-delay:.42s"></span>
-  </div>
-  <div class="panel rankup-panel">
-    <div class="rankup-ico" id="rankupIco">🥉</div>
-    <div class="rankup-title" data-i18n="rankUp">ランクアップ！</div>
-    <div class="rankup-name" id="rankupName">Bronze</div>
-    <label class="rankup-dont"><input type="checkbox" id="rankupDont"> <span data-i18n="dontShowAgain">今後この画面を表示しない</span></label>
-    <button class="btn-close" id="rankupCloseBtn" data-i18n="close">閉じる</button>
-  </div>
-</div>
-
-<script>
-  const CIRCUMFERENCE = 2 * Math.PI * 115; // ≈ 722.6
-
-  // 休憩の設定（編集可）。短い休憩・長い休憩・長休憩の間隔（◯回ごと）。
-  const DEFAULT_BREAK = { short: 5, long: 15, every: 4 };
-  function loadBreak() {
-    try { const s = JSON.parse(localStorage.getItem('pomo_break')); if (s && s.short && s.long && s.every) return { short: +s.short, long: +s.long, every: +s.every }; } catch (e) {}
-    return { ...DEFAULT_BREAK };
-  }
-  let brk = loadBreak();
-  function saveBreak() { localStorage.setItem('pomo_break', JSON.stringify(brk)); }
-  let focusInRun = 0;   // この稼働で完了した集中数（長休憩の判定用）
-  let nextFocusSec = 0; // 休憩中に予告する「次の集中」（休憩開始時に確定）
-
-  // デイリー目標（単位はユーザーが選択：回数 count / 時間 min）
-  function loadGoal() { try { const s = JSON.parse(localStorage.getItem('pomo_goal')); if (s && (s.unit === 'count' || s.unit === 'min') && s.value > 0) return { unit: s.unit, value: +s.value }; } catch (e) {} return { unit: 'count', value: 8 }; }
-  let dailyGoal = loadGoal();
-  function saveGoal() { localStorage.setItem('pomo_goal', JSON.stringify(dailyGoal)); }
-
-  // 音（オン/オフ＋音量0-100）
-  let soundOn  = localStorage.getItem('pomo_sound') !== '0';
-  let soundVol = (() => { const v = parseInt(localStorage.getItem('pomo_vol'), 10); return isNaN(v) ? 60 : Math.max(0, Math.min(100, v)); })();
-
-  // 昇格演出スタイル（sparkle / subtle / confetti）
-  let levelupStyle = localStorage.getItem('pomo_lvfx') || 'sparkle';
-
-  // テーマ（dark/light）＋アクセント色
-  let theme  = localStorage.getItem('pomo_theme')  || 'dark';
-  let accent = localStorage.getItem('pomo_accent') || 'teal';
-  const ACCENTS = { teal: ['#4ecdc4', '#6aa9e0'], blue: ['#5b8fe0', '#4ecdc4'], green: ['#5cc28d', '#6aa9e0'], purple: ['#9b8cf0', '#5fb6df'] };
-  function applyTheme() {
-    document.body.classList.toggle('light', theme === 'light');
-    const a = ACCENTS[accent] || ACCENTS.teal;
-    document.documentElement.style.setProperty('--accent', a[0]);
-    document.documentElement.style.setProperty('--accent2', a[1]);
-    const meta = document.querySelector('meta[name=theme-color]');
-    if (meta) meta.content = (theme === 'light') ? '#eef1f7' : '#0b2545';
-  }
-
-  // ===== 多言語対応 (i18n) =====
-  // 文字列はキーで管理。テンプレートは関数で持つ。新言語はここに1ブロック足すだけ。
-  const I18N = {
-    ja: {
-      focus: '集中', break: '休憩',
-      focusLabel: m => `集中 ${m}分`,
-      session: n => `セッション ${n}`,
-      start: 'スタート', stop: 'ストップ',
-      completed: n => `完了 ${n} 回`,
-      resetTitle: 'リセット', skipTitle: 'スキップ', gearTitle: '設定',
-      countResetTitle: 'クリックでカウントをリセット',
-      countResetConfirm: '完了回数をリセットしますか？',
-      distTitle: '集中時間の確率分布',
-      hint: 'バーを上下にドラッグして、各時間（分）の出やすさを調整できます。範囲 1〜60 分・5分刻み。',
-      presets: 'プリセット',
-      presetLabel: m => `${m}分多め`,
-      mean: m => `平均 ≈ ${m} 分`,
-      meanZero: '（すべて0：1〜60分から均等に出ます）',
-      save: '保存', namePlaceholder: 'プリセット名（任意）',
-      defaultName: n => `マイ設定 ${n}`,
-      noCustom: 'マイ設定はまだありません',
-      deleteConfirm: name => `「${name}」を削除しますか？`,
-      saved: '✓', resetDefault: '既定に戻す', close: '閉じる',
-    },
-    en: {
-      focus: 'Focus', break: 'Break',
-      focusLabel: m => `Focus ${m} min`,
-      session: n => `Session ${n}`,
-      start: 'Start', stop: 'Stop',
-      completed: n => `${n} done`,
-      resetTitle: 'Reset', skipTitle: 'Skip', gearTitle: 'Settings',
-      countResetTitle: 'Click to reset the count',
-      countResetConfirm: 'Reset the completed count?',
-      distTitle: 'Focus-time distribution',
-      hint: 'Drag the bars to set how often each duration occurs. Range 1–60 min, 5-min steps.',
-      presets: 'Presets',
-      presetLabel: m => `~${m} min`,
-      mean: m => `Avg ≈ ${m} min`,
-      meanZero: '(all zero: uniform 1–60 min)',
-      save: 'Save', namePlaceholder: 'Preset name (optional)',
-      defaultName: n => `My preset ${n}`,
-      noCustom: 'No saved presets yet',
-      deleteConfirm: name => `Delete "${name}"?`,
-      saved: '✓', resetDefault: 'Default', close: 'Close',
-    },
-    zh: {
-      focus: '专注', break: '休息',
-      focusLabel: m => `专注 ${m} 分钟`,
-      session: n => `第 ${n} 回`,
-      start: '开始', stop: '停止',
-      completed: n => `完成 ${n} 次`,
-      resetTitle: '重置', skipTitle: '跳过', gearTitle: '设置',
-      countResetTitle: '点击重置次数',
-      countResetConfirm: '要重置完成次数吗？',
-      distTitle: '专注时长的概率分布',
-      hint: '拖动柱状条来设置每个时长出现的概率。范围 1–60 分钟，每 5 分钟一档。',
-      presets: '预设',
-      presetLabel: m => `偏 ${m} 分`,
-      mean: m => `平均 ≈ ${m} 分钟`,
-      meanZero: '（全为 0：1–60 分钟均匀）',
-      save: '保存', namePlaceholder: '预设名称（可选）',
-      defaultName: n => `我的预设 ${n}`,
-      noCustom: '还没有保存的预设',
-      deleteConfirm: name => `要删除“${name}”吗？`,
-      saved: '✓', resetDefault: '恢复默认', close: '关闭',
-    },
-    ko: {
-      focus: '집중', break: '휴식',
-      focusLabel: m => `집중 ${m}분`,
-      session: n => `세션 ${n}`,
-      start: '시작', stop: '정지',
-      completed: n => `완료 ${n}회`,
-      resetTitle: '리셋', skipTitle: '건너뛰기', gearTitle: '설정',
-      countResetTitle: '클릭하면 횟수 초기화',
-      countResetConfirm: '완료 횟수를 초기화할까요?',
-      distTitle: '집중 시간 확률 분포',
-      hint: '막대를 드래그해 각 시간의 출현 빈도를 조절하세요. 범위 1~60분, 5분 단위.',
-      presets: '프리셋',
-      presetLabel: m => `${m}분 위주`,
-      mean: m => `평균 ≈ ${m}분`,
-      meanZero: '(모두 0: 1~60분 균등)',
-      save: '저장', namePlaceholder: '프리셋 이름(선택)',
-      defaultName: n => `내 프리셋 ${n}`,
-      noCustom: '저장된 프리셋이 없습니다',
-      deleteConfirm: name => `"${name}"을(를) 삭제할까요?`,
-      saved: '✓', resetDefault: '기본값', close: '닫기',
-    },
-    es: {
-      focus: 'Enfoque', break: 'Descanso',
-      focusLabel: m => `Enfoque ${m} min`,
-      session: n => `Sesión ${n}`,
-      start: 'Iniciar', stop: 'Detener',
-      completed: n => `${n} hechos`,
-      resetTitle: 'Reiniciar', skipTitle: 'Saltar', gearTitle: 'Ajustes',
-      countResetTitle: 'Clic para reiniciar el conteo',
-      countResetConfirm: '¿Reiniciar el conteo de completados?',
-      distTitle: 'Distribución del tiempo de enfoque',
-      hint: 'Arrastra las barras para ajustar la frecuencia de cada duración. Rango 1–60 min, pasos de 5 min.',
-      presets: 'Preajustes',
-      presetLabel: m => `~${m} min`,
-      mean: m => `Prom ≈ ${m} min`,
-      meanZero: '(todo cero: uniforme 1–60 min)',
-      save: 'Guardar', namePlaceholder: 'Nombre (opcional)',
-      defaultName: n => `Mi preajuste ${n}`,
-      noCustom: 'Aún no hay preajustes guardados',
-      deleteConfirm: name => `¿Eliminar "${name}"?`,
-      saved: '✓', resetDefault: 'Predeterminado', close: 'Cerrar',
-    },
-    zhHant: {
-      focus: '專注', break: '休息',
-      focusLabel: m => `專注 ${m} 分鐘`,
-      session: n => `第 ${n} 回`,
-      start: '開始', stop: '停止',
-      completed: n => `完成 ${n} 次`,
-      resetTitle: '重置', skipTitle: '跳過', gearTitle: '設定',
-      countResetTitle: '點擊重置次數',
-      countResetConfirm: '要重置完成次數嗎？',
-      distTitle: '專注時長的機率分布',
-      hint: '拖曳長條來設定每個時長出現的機率。範圍 1–60 分鐘，每 5 分鐘一檔。',
-      presets: '預設',
-      presetLabel: m => `偏 ${m} 分`,
-      mean: m => `平均 ≈ ${m} 分鐘`,
-      meanZero: '（全為 0：1–60 分鐘均勻）',
-      save: '儲存', namePlaceholder: '預設名稱（可選）',
-      defaultName: n => `我的預設 ${n}`,
-      noCustom: '尚未儲存任何預設',
-      deleteConfirm: name => `要刪除「${name}」嗎？`,
-      saved: '✓', resetDefault: '恢復預設', close: '關閉',
-    },
-    pt: {
-      focus: 'Foco', break: 'Pausa',
-      focusLabel: m => `Foco ${m} min`,
-      session: n => `Sessão ${n}`,
-      start: 'Iniciar', stop: 'Parar',
-      completed: n => `${n} concluídos`,
-      resetTitle: 'Reiniciar', skipTitle: 'Pular', gearTitle: 'Configurações',
-      countResetTitle: 'Clique para zerar a contagem',
-      countResetConfirm: 'Zerar a contagem de concluídos?',
-      distTitle: 'Distribuição do tempo de foco',
-      hint: 'Arraste as barras para ajustar a frequência de cada duração. Faixa de 1–60 min, em passos de 5 min.',
-      presets: 'Predefinições',
-      presetLabel: m => `~${m} min`,
-      mean: m => `Média ≈ ${m} min`,
-      meanZero: '(tudo zero: uniforme de 1–60 min)',
-      save: 'Salvar', namePlaceholder: 'Nome da predefinição (opcional)',
-      defaultName: n => `Minha predefinição ${n}`,
-      noCustom: 'Nenhuma predefinição salva ainda',
-      deleteConfirm: name => `Excluir "${name}"?`,
-      saved: '✓', resetDefault: 'Padrão', close: 'Fechar',
-    },
-    tr: {
-      focus: 'Odak', break: 'Mola',
-      focusLabel: m => `Odak ${m} dk`,
-      session: n => `Oturum ${n}`,
-      start: 'Başlat', stop: 'Durdur',
-      completed: n => `${n} tamamlandı`,
-      resetTitle: 'Sıfırla', skipTitle: 'Atla', gearTitle: 'Ayarlar',
-      countResetTitle: 'Sayacı sıfırlamak için tıklayın',
-      countResetConfirm: 'Tamamlanan sayısı sıfırlansın mı?',
-      distTitle: 'Odak süresi dağılımı',
-      hint: 'Her sürenin ne sıklıkta geleceğini ayarlamak için çubukları sürükleyin. Aralık 1–60 dk, 5 dk adımlarla.',
-      presets: 'Hazır ayarlar',
-      presetLabel: m => `~${m} dk`,
-      mean: m => `Ort ≈ ${m} dk`,
-      meanZero: '(hepsi sıfır: 1–60 dk eşit)',
-      save: 'Kaydet', namePlaceholder: 'Ön ayar adı (isteğe bağlı)',
-      defaultName: n => `Ön ayarım ${n}`,
-      noCustom: 'Henüz kayıtlı ön ayar yok',
-      deleteConfirm: name => `"${name}" silinsin mi?`,
-      saved: '✓', resetDefault: 'Varsayılan', close: 'Kapat',
-    },
-    th: {
-      focus: 'โฟกัส', break: 'พัก',
-      focusLabel: m => `โฟกัส ${m} นาที`,
-      session: n => `เซสชัน ${n}`,
-      start: 'เริ่ม', stop: 'หยุด',
-      completed: n => `เสร็จ ${n} ครั้ง`,
-      resetTitle: 'รีเซ็ต', skipTitle: 'ข้าม', gearTitle: 'ตั้งค่า',
-      countResetTitle: 'แตะเพื่อรีเซ็ตจำนวน',
-      countResetConfirm: 'รีเซ็ตจำนวนที่ทำเสร็จไหม?',
-      distTitle: 'การกระจายของเวลาโฟกัส',
-      hint: 'ลากแท่งเพื่อกำหนดความถี่ของแต่ละช่วงเวลา ช่วง 1–60 นาที ทีละ 5 นาที',
-      presets: 'พรีเซ็ต',
-      presetLabel: m => `~${m} นาที`,
-      mean: m => `เฉลี่ย ≈ ${m} นาที`,
-      meanZero: '(ทั้งหมดเป็น 0: สุ่ม 1–60 นาที)',
-      save: 'บันทึก', namePlaceholder: 'ชื่อพรีเซ็ต (ไม่บังคับ)',
-      defaultName: n => `พรีเซ็ตของฉัน ${n}`,
-      noCustom: 'ยังไม่มีพรีเซ็ตที่บันทึกไว้',
-      deleteConfirm: name => `ลบ "${name}" ไหม?`,
-      saved: '✓', resetDefault: 'ค่าเริ่มต้น', close: 'ปิด',
-    },
-    vi: {
-      focus: 'Tập trung', break: 'Nghỉ',
-      focusLabel: m => `Tập trung ${m} phút`,
-      session: n => `Phiên ${n}`,
-      start: 'Bắt đầu', stop: 'Dừng',
-      completed: n => `Hoàn thành ${n}`,
-      resetTitle: 'Đặt lại', skipTitle: 'Bỏ qua', gearTitle: 'Cài đặt',
-      countResetTitle: 'Nhấn để đặt lại số đếm',
-      countResetConfirm: 'Đặt lại số lần hoàn thành?',
-      distTitle: 'Phân bố thời gian tập trung',
-      hint: 'Kéo các thanh để chỉnh tần suất của mỗi khoảng thời gian. Phạm vi 1–60 phút, bước 5 phút.',
-      presets: 'Cài sẵn',
-      presetLabel: m => `~${m} phút`,
-      mean: m => `TB ≈ ${m} phút`,
-      meanZero: '(tất cả bằng 0: đều 1–60 phút)',
-      save: 'Lưu', namePlaceholder: 'Tên cài đặt (tùy chọn)',
-      defaultName: n => `Cài đặt của tôi ${n}`,
-      noCustom: 'Chưa có cài đặt nào được lưu',
-      deleteConfirm: name => `Xóa "${name}"?`,
-      saved: '✓', resetDefault: 'Mặc định', close: 'Đóng',
-    },
-  };
-
-  // 課金（Pro / 広告）まわりの文言。別辞書にして I18N へマージ。
-  const MON = {
-    ja:     { ad: '広告',     proDesc: '広告オフ・マイ設定無制限・テーマ追加', proGet: 'Proを入手',   proOn: 'Pro 有効 ✓',     proLimit: n => `無料はマイ設定${n}件まで。Proで無制限に。` },
-    en:     { ad: 'Ad',       proDesc: 'No ads · Unlimited presets · Themes',   proGet: 'Get Pro',     proOn: 'Pro active ✓',   proLimit: n => `Free allows ${n} presets. Go Pro for unlimited.` },
-    zh:     { ad: '广告',     proDesc: '去广告 · 预设无限 · 主题',              proGet: '获取 Pro',    proOn: 'Pro 已开通 ✓',   proLimit: n => `免费版最多 ${n} 个预设，升级 Pro 无限制。` },
-    zhHant: { ad: '廣告',     proDesc: '去廣告 · 預設無限 · 主題',              proGet: '取得 Pro',    proOn: 'Pro 已啟用 ✓',   proLimit: n => `免費版最多 ${n} 個預設，升級 Pro 無限制。` },
-    ko:     { ad: '광고',     proDesc: '광고 제거 · 프리셋 무제한 · 테마',       proGet: 'Pro 받기',    proOn: 'Pro 활성화 ✓',   proLimit: n => `무료는 프리셋 ${n}개까지. Pro로 무제한.` },
-    es:     { ad: 'Anuncio',  proDesc: 'Sin anuncios · Preajustes ilimitados · Temas', proGet: 'Obtener Pro', proOn: 'Pro activo ✓', proLimit: n => `Gratis permite ${n} preajustes. Hazte Pro para ilimitados.` },
-    pt:     { ad: 'Anúncio',  proDesc: 'Sem anúncios · Predefinições ilimitadas · Temas', proGet: 'Obter Pro', proOn: 'Pro ativo ✓', proLimit: n => `O grátis permite ${n} predefinições. Assine o Pro para ilimitadas.` },
-    tr:     { ad: 'Reklam',   proDesc: 'Reklamsız · Sınırsız ön ayar · Temalar', proGet: "Pro'yu al",  proOn: 'Pro etkin ✓',    proLimit: n => `Ücretsizde ${n} ön ayar. Sınırsız için Pro.` },
-    th:     { ad: 'โฆษณา',    proDesc: 'ไม่มีโฆษณา · พรีเซ็ตไม่จำกัด · ธีม',     proGet: 'รับ Pro',     proOn: 'เปิด Pro แล้ว ✓', proLimit: n => `ฟรีได้ ${n} พรีเซ็ต อัปเป็น Pro ไม่จำกัด` },
-    vi:     { ad: 'Quảng cáo', proDesc: 'Không quảng cáo · Cài đặt không giới hạn · Giao diện', proGet: 'Lấy Pro', proOn: 'Pro đang bật ✓', proLimit: n => `Miễn phí tối đa ${n} cài đặt. Lên Pro để không giới hạn.` },
-  };
-  for (const l in MON) Object.assign(I18N[l], MON[l]);
-
-  // 統計／ランクまわりの文言。
-  const STATS = {
-    ja:     { statsTitle: '統計', rank: 'ランク', toNext: '次まで', today: '今日', streak: '連続日数', week7: '7日合計', avgDay: '1日平均', best: '最高/日', last14: '直近14日', standing: '推定の立ち位置', topPct: x => `上位 約${x}%`, estNote: '※ 他ユーザーとの実ランキングは今後サーバー連携で対応。これは目安です。' },
-    en:     { statsTitle: 'Stats', rank: 'Rank', toNext: 'To next', today: 'Today', streak: 'Streak', week7: '7-day total', avgDay: 'Avg/day', best: 'Best/day', last14: 'Last 14 days', standing: 'Estimated standing', topPct: x => `Top ~${x}%`, estNote: '* Real cross-user ranking needs a server (coming later). This is an estimate.' },
-    zh:     { statsTitle: '统计', rank: '等级', toNext: '距下一级', today: '今天', streak: '连续天数', week7: '7天合计', avgDay: '日均', best: '单日最高', last14: '近14天', standing: '估计排名', topPct: x => `前 ${x}% 左右`, estNote: '※ 与其他用户的真实排名需服务器（后续）。此为估算。' },
-    zhHant: { statsTitle: '統計', rank: '等級', toNext: '距下一級', today: '今天', streak: '連續天數', week7: '7天合計', avgDay: '日均', best: '單日最高', last14: '近14天', standing: '估計排名', topPct: x => `前 ${x}% 左右`, estNote: '※ 與其他使用者的真實排名需伺服器（後續）。此為估算。' },
-    ko:     { statsTitle: '통계', rank: '랭크', toNext: '다음까지', today: '오늘', streak: '연속일', week7: '7일 합계', avgDay: '일평균', best: '최고/일', last14: '최근 14일', standing: '예상 순위', topPct: x => `상위 약 ${x}%`, estNote: '※ 실제 사용자 간 랭킹은 서버 연동 필요(추후). 이는 추정치입니다.' },
-    es:     { statsTitle: 'Estadísticas', rank: 'Rango', toNext: 'Al siguiente', today: 'Hoy', streak: 'Racha', week7: 'Total 7 días', avgDay: 'Media/día', best: 'Mejor/día', last14: 'Últimos 14 días', standing: 'Posición estimada', topPct: x => `Top ~${x}%`, estNote: '* El ranking real entre usuarios requiere un servidor (próximamente). Esto es una estimación.' },
-    pt:     { statsTitle: 'Estatísticas', rank: 'Rank', toNext: 'Para o próximo', today: 'Hoje', streak: 'Sequência', week7: 'Total 7 dias', avgDay: 'Média/dia', best: 'Melhor/dia', last14: 'Últimos 14 dias', standing: 'Posição estimada', topPct: x => `Top ~${x}%`, estNote: '* O ranking real entre usuários precisa de servidor (em breve). Isto é uma estimativa.' },
-    tr:     { statsTitle: 'İstatistik', rank: 'Rütbe', toNext: 'Sonrakine', today: 'Bugün', streak: 'Seri', week7: '7 gün toplam', avgDay: 'Gün ort.', best: 'En iyi/gün', last14: 'Son 14 gün', standing: 'Tahmini sıralama', topPct: x => `İlk ~%${x}`, estNote: '* Kullanıcılar arası gerçek sıralama sunucu gerektirir (yakında). Bu bir tahmindir.' },
-    th:     { statsTitle: 'สถิติ', rank: 'อันดับ', toNext: 'ถึงระดับถัดไป', today: 'วันนี้', streak: 'ต่อเนื่อง', week7: 'รวม 7 วัน', avgDay: 'เฉลี่ย/วัน', best: 'สูงสุด/วัน', last14: '14 วันล่าสุด', standing: 'อันดับโดยประมาณ', topPct: x => `ท็อป ~${x}%`, estNote: '* อันดับจริงระหว่างผู้ใช้ต้องใช้เซิร์ฟเวอร์ (เร็วๆ นี้) นี่เป็นค่าประมาณ' },
-    vi:     { statsTitle: 'Thống kê', rank: 'Hạng', toNext: 'Đến hạng sau', today: 'Hôm nay', streak: 'Chuỗi ngày', week7: 'Tổng 7 ngày', avgDay: 'TB/ngày', best: 'Cao nhất/ngày', last14: '14 ngày gần đây', standing: 'Xếp hạng ước tính', topPct: x => `Top ~${x}%`, estNote: '* Xếp hạng thật giữa người dùng cần máy chủ (sắp có). Đây là ước tính.' },
-  };
-  for (const l in STATS) Object.assign(I18N[l], STATS[l]);
-
-  // 休憩設定・ランクアップ・バックアップの文言。
-  const EXTRA = {
-    ja:     { brkShort: '短い休憩(分)', brkLong: '長い休憩(分)', brkEvery: '長休憩の間隔(回)', rankUp: 'ランクアップ！', dontShowAgain: '今後この画面を表示しない', exportBtn: 'バックアップ書き出し', importBtn: 'バックアップ読み込み', backup: 'バックアップ', importErr: 'ファイルを読み込めませんでした', importOk: '読み込みました' },
-    en:     { brkShort: 'Short break (min)', brkLong: 'Long break (min)', brkEvery: 'Long break every (sets)', rankUp: 'Rank up!', dontShowAgain: "Don't show this again", exportBtn: 'Export backup', importBtn: 'Import backup', backup: 'Backup', importErr: 'Could not read the file', importOk: 'Imported' },
-    zh:     { brkShort: '短休息(分)', brkLong: '长休息(分)', brkEvery: '长休息间隔(次)', rankUp: '升级！', dontShowAgain: '不再显示此画面', exportBtn: '导出备份', importBtn: '导入备份', backup: '备份', importErr: '无法读取文件', importOk: '已导入' },
-    zhHant: { brkShort: '短休息(分)', brkLong: '長休息(分)', brkEvery: '長休息間隔(次)', rankUp: '升級！', dontShowAgain: '不再顯示此畫面', exportBtn: '匯出備份', importBtn: '匯入備份', backup: '備份', importErr: '無法讀取檔案', importOk: '已匯入' },
-    ko:     { brkShort: '짧은 휴식(분)', brkLong: '긴 휴식(분)', brkEvery: '긴 휴식 간격(회)', rankUp: '랭크 업!', dontShowAgain: '다시 표시 안 함', exportBtn: '백업 내보내기', importBtn: '백업 가져오기', backup: '백업', importErr: '파일을 읽을 수 없습니다', importOk: '가져왔습니다' },
-    es:     { brkShort: 'Descanso corto (min)', brkLong: 'Descanso largo (min)', brkEvery: 'Descanso largo cada (sets)', rankUp: '¡Subiste de rango!', dontShowAgain: 'No mostrar de nuevo', exportBtn: 'Exportar copia', importBtn: 'Importar copia', backup: 'Copia de seguridad', importErr: 'No se pudo leer el archivo', importOk: 'Importado' },
-    pt:     { brkShort: 'Pausa curta (min)', brkLong: 'Pausa longa (min)', brkEvery: 'Pausa longa a cada (sets)', rankUp: 'Subiu de rank!', dontShowAgain: 'Não mostrar de novo', exportBtn: 'Exportar backup', importBtn: 'Importar backup', backup: 'Backup', importErr: 'Não foi possível ler o arquivo', importOk: 'Importado' },
-    tr:     { brkShort: 'Kısa mola (dk)', brkLong: 'Uzun mola (dk)', brkEvery: 'Şu turda bir uzun mola', rankUp: 'Rütbe atladın!', dontShowAgain: 'Bir daha gösterme', exportBtn: 'Yedeği dışa aktar', importBtn: 'Yedeği içe aktar', backup: 'Yedek', importErr: 'Dosya okunamadı', importOk: 'İçe aktarıldı' },
-    th:     { brkShort: 'พักสั้น (นาที)', brkLong: 'พักยาว (นาที)', brkEvery: 'พักยาวทุก (รอบ)', rankUp: 'เลื่อนอันดับ!', dontShowAgain: 'ไม่ต้องแสดงอีก', exportBtn: 'ส่งออกข้อมูล', importBtn: 'นำเข้าข้อมูล', backup: 'สำรองข้อมูล', importErr: 'อ่านไฟล์ไม่ได้', importOk: 'นำเข้าแล้ว' },
-    vi:     { brkShort: 'Nghỉ ngắn (phút)', brkLong: 'Nghỉ dài (phút)', brkEvery: 'Nghỉ dài mỗi (set)', rankUp: 'Lên hạng!', dontShowAgain: 'Không hiện lại', exportBtn: 'Xuất sao lưu', importBtn: 'Nhập sao lưu', backup: 'Sao lưu', importErr: 'Không đọc được tệp', importOk: 'Đã nhập' },
-  };
-  for (const l in EXTRA) Object.assign(I18N[l], EXTRA[l]);
-
-  // 学習ログ・合計時間の文言。
-  const LOG = {
-    ja:     { logTitle: '学習ログ', subjectsLabel: '科目', subjectPh: '科目を追加', historyLabel: '履歴', unset: '未設定', noLog: 'まだ記録がありません', totalTime: '合計時間' },
-    en:     { logTitle: 'Study log', subjectsLabel: 'Subjects', subjectPh: 'Add a subject', historyLabel: 'History', unset: 'Unset', noLog: 'No sessions yet', totalTime: 'Total time' },
-    zh:     { logTitle: '学习记录', subjectsLabel: '科目', subjectPh: '添加科目', historyLabel: '历史', unset: '未设置', noLog: '还没有记录', totalTime: '总时长' },
-    zhHant: { logTitle: '學習記錄', subjectsLabel: '科目', subjectPh: '新增科目', historyLabel: '歷史', unset: '未設定', noLog: '尚無記錄', totalTime: '總時長' },
-    ko:     { logTitle: '학습 로그', subjectsLabel: '과목', subjectPh: '과목 추가', historyLabel: '기록', unset: '미설정', noLog: '아직 기록이 없습니다', totalTime: '총 시간' },
-    es:     { logTitle: 'Registro de estudio', subjectsLabel: 'Materias', subjectPh: 'Añadir materia', historyLabel: 'Historial', unset: 'Sin asignar', noLog: 'Aún no hay sesiones', totalTime: 'Tiempo total' },
-    pt:     { logTitle: 'Registro de estudo', subjectsLabel: 'Matérias', subjectPh: 'Adicionar matéria', historyLabel: 'Histórico', unset: 'Sem rótulo', noLog: 'Ainda sem sessões', totalTime: 'Tempo total' },
-    tr:     { logTitle: 'Çalışma kaydı', subjectsLabel: 'Konular', subjectPh: 'Konu ekle', historyLabel: 'Geçmiş', unset: 'Atanmadı', noLog: 'Henüz kayıt yok', totalTime: 'Toplam süre' },
-    th:     { logTitle: 'บันทึกการเรียน', subjectsLabel: 'วิชา', subjectPh: 'เพิ่มวิชา', historyLabel: 'ประวัติ', unset: 'ยังไม่ระบุ', noLog: 'ยังไม่มีบันทึก', totalTime: 'เวลารวม' },
-    vi:     { logTitle: 'Nhật ký học', subjectsLabel: 'Môn học', subjectPh: 'Thêm môn', historyLabel: 'Lịch sử', unset: 'Chưa đặt', noLog: 'Chưa có phiên nào', totalTime: 'Tổng thời gian' },
-  };
-  for (const l in LOG) Object.assign(I18N[l], LOG[l]);
-
-  // デイリー目標・音・昇格演出・休憩tips の文言。
-  const FEAT = {
-    ja:     { goalLabel: '今日の目標', sound: '音', volume: '音量', nextUp: '次は', levelupStyle: '昇格演出', unitCount: '回', unitMin: '分', lvSparkle: 'キラキラ', lvSubtle: '上品', lvConfetti: '紙吹雪', tips: ['深呼吸して目を休めよう', '水を一口飲もう', '立って体を伸ばそう', '次の一手を決めておこう', '画面から目を離そう'] },
-    en:     { goalLabel: 'Daily goal', sound: 'Sound', volume: 'Volume', nextUp: 'Next', levelupStyle: 'Rank-up effect', unitCount: 'sessions', unitMin: 'min', lvSparkle: 'Sparkle', lvSubtle: 'Subtle', lvConfetti: 'Confetti', tips: ['Breathe deep and rest your eyes', 'Drink some water', 'Stand up and stretch', 'Decide your next step', 'Look away from the screen'] },
-    zh:     { goalLabel: '每日目标', sound: '声音', volume: '音量', nextUp: '接下来', levelupStyle: '升级特效', unitCount: '次', unitMin: '分钟', lvSparkle: '闪光', lvSubtle: '简约', lvConfetti: '彩纸', tips: ['深呼吸，让眼睛休息', '喝口水', '起身伸展一下', '想好下一步', '让眼睛离开屏幕'] },
-    zhHant: { goalLabel: '每日目標', sound: '聲音', volume: '音量', nextUp: '接下來', levelupStyle: '升級特效', unitCount: '次', unitMin: '分鐘', lvSparkle: '閃光', lvSubtle: '簡約', lvConfetti: '彩紙', tips: ['深呼吸，讓眼睛休息', '喝口水', '起身伸展一下', '想好下一步', '讓眼睛離開螢幕'] },
-    ko:     { goalLabel: '오늘 목표', sound: '소리', volume: '음량', nextUp: '다음', levelupStyle: '랭크업 효과', unitCount: '회', unitMin: '분', lvSparkle: '반짝', lvSubtle: '은은', lvConfetti: '콘페티', tips: ['심호흡하고 눈을 쉬게 하세요', '물 한 모금 드세요', '일어나서 스트레칭하세요', '다음 할 일을 정하세요', '화면에서 눈을 떼세요'] },
-    es:     { goalLabel: 'Meta diaria', sound: 'Sonido', volume: 'Volumen', nextUp: 'Siguiente', levelupStyle: 'Efecto de subida', unitCount: 'sesiones', unitMin: 'min', lvSparkle: 'Destellos', lvSubtle: 'Sutil', lvConfetti: 'Confeti', tips: ['Respira hondo y descansa la vista', 'Bebe un poco de agua', 'Levántate y estírate', 'Decide tu próximo paso', 'Aparta la vista de la pantalla'] },
-    pt:     { goalLabel: 'Meta diária', sound: 'Som', volume: 'Volume', nextUp: 'Próximo', levelupStyle: 'Efeito de subida', unitCount: 'sessões', unitMin: 'min', lvSparkle: 'Brilho', lvSubtle: 'Sutil', lvConfetti: 'Confete', tips: ['Respire fundo e descanse os olhos', 'Beba um pouco de água', 'Levante-se e alongue-se', 'Decida seu próximo passo', 'Desvie o olhar da tela'] },
-    tr:     { goalLabel: 'Günlük hedef', sound: 'Ses', volume: 'Ses düzeyi', nextUp: 'Sırada', levelupStyle: 'Yükselme efekti', unitCount: 'tur', unitMin: 'dk', lvSparkle: 'Parıltı', lvSubtle: 'Sade', lvConfetti: 'Konfeti', tips: ['Derin nefes al, gözlerini dinlendir', 'Biraz su iç', 'Ayağa kalk ve esne', 'Sonraki adımına karar ver', 'Gözünü ekrandan ayır'] },
-    th:     { goalLabel: 'เป้าหมายวันนี้', sound: 'เสียง', volume: 'ระดับเสียง', nextUp: 'ต่อไป', levelupStyle: 'เอฟเฟกต์เลื่อนขั้น', unitCount: 'รอบ', unitMin: 'นาที', lvSparkle: 'ประกาย', lvSubtle: 'เรียบ', lvConfetti: 'คอนเฟตติ', tips: ['หายใจลึกๆ พักสายตา', 'ดื่มน้ำสักหน่อย', 'ลุกขึ้นยืดเส้น', 'ตัดสินใจขั้นต่อไป', 'ละสายตาจากหน้าจอ'] },
-    vi:     { goalLabel: 'Mục tiêu hôm nay', sound: 'Âm thanh', volume: 'Âm lượng', nextUp: 'Tiếp theo', levelupStyle: 'Hiệu ứng lên hạng', unitCount: 'phiên', unitMin: 'phút', lvSparkle: 'Lấp lánh', lvSubtle: 'Tinh tế', lvConfetti: 'Hoa giấy', tips: ['Hít thở sâu và để mắt nghỉ', 'Uống chút nước', 'Đứng dậy và vươn vai', 'Quyết định bước tiếp theo', 'Rời mắt khỏi màn hình'] },
-  };
-  for (const l in FEAT) Object.assign(I18N[l], FEAT[l]);
-
-  // テーマ・オンボーディングの文言。
-  const THM = {
-    ja:     { theme: 'テーマ', themeDark: 'ダーク', themeLight: 'ライト', accentLabel: 'アクセント', obNext: '次へ', obStart: '始める', obSkip: 'スキップ', help: '使い方', obSlides: [['ようこそ Cramodoro へ', '集中時間はランダム。出やすさ（分布）を自分で編集できます。'], ['自動で集中と休憩', 'スタートすれば、ストップまで自動で繰り返します。'], ['記録とランク', '⚙ 分布・設定 ／ 📒 学習ログ ／ 📊 統計とランク']] },
-    en:     { theme: 'Theme', themeDark: 'Dark', themeLight: 'Light', accentLabel: 'Accent', obNext: 'Next', obStart: 'Start', obSkip: 'Skip', help: 'How to use', obSlides: [['Welcome to Cramodoro', 'Focus time is random — and you shape the odds yourself.'], ['Auto focus & breaks', 'Start once and it loops until you stop.'], ['Track & rank up', '⚙ settings · 📒 study log · 📊 stats & rank']] },
-    zh:     { theme: '主题', themeDark: '深色', themeLight: '浅色', accentLabel: '强调色', obNext: '下一步', obStart: '开始', obSkip: '跳过', help: '使用方法', obSlides: [['欢迎使用 Cramodoro', '专注时长随机，你可以自己调整概率分布。'], ['自动专注与休息', '开始后会自动循环，直到你停止。'], ['记录与升级', '⚙ 设置 · 📒 学习记录 · 📊 统计与等级']] },
-    zhHant: { theme: '主題', themeDark: '深色', themeLight: '淺色', accentLabel: '強調色', obNext: '下一步', obStart: '開始', obSkip: '跳過', help: '使用方法', obSlides: [['歡迎使用 Cramodoro', '專注時長隨機，你可以自己調整機率分布。'], ['自動專注與休息', '開始後會自動循環，直到你停止。'], ['記錄與升級', '⚙ 設定 · 📒 學習記錄 · 📊 統計與等級']] },
-    ko:     { theme: '테마', themeDark: '다크', themeLight: '라이트', accentLabel: '강조색', obNext: '다음', obStart: '시작', obSkip: '건너뛰기', help: '사용법', obSlides: [['Cramodoro에 오신 걸 환영해요', '집중 시간은 랜덤. 확률 분포를 직접 조절할 수 있어요.'], ['자동 집중과 휴식', '시작하면 멈출 때까지 자동 반복돼요.'], ['기록과 랭크업', '⚙ 설정 · 📒 학습 로그 · 📊 통계와 랭크']] },
-    es:     { theme: 'Tema', themeDark: 'Oscuro', themeLight: 'Claro', accentLabel: 'Acento', obNext: 'Siguiente', obStart: 'Empezar', obSkip: 'Saltar', help: 'Cómo usar', obSlides: [['Bienvenido a Cramodoro', 'El tiempo de enfoque es aleatorio y tú ajustas las probabilidades.'], ['Enfoque y pausas automáticos', 'Inícialo una vez y se repite hasta que pares.'], ['Registra y sube de rango', '⚙ ajustes · 📒 registro · 📊 estadísticas y rango']] },
-    pt:     { theme: 'Tema', themeDark: 'Escuro', themeLight: 'Claro', accentLabel: 'Destaque', obNext: 'Próximo', obStart: 'Começar', obSkip: 'Pular', help: 'Como usar', obSlides: [['Bem-vindo ao Cramodoro', 'O tempo de foco é aleatório e você ajusta as probabilidades.'], ['Foco e pausas automáticos', 'Inicie uma vez e ele repete até você parar.'], ['Acompanhe e suba de rank', '⚙ ajustes · 📒 registro · 📊 estatísticas e rank']] },
-    tr:     { theme: 'Tema', themeDark: 'Koyu', themeLight: 'Açık', accentLabel: 'Vurgu', obNext: 'İleri', obStart: 'Başla', obSkip: 'Atla', help: 'Nasıl kullanılır', obSlides: [['Cramodoro\'ya hoş geldin', 'Odak süresi rastgele — olasılıkları sen ayarlarsın.'], ['Otomatik odak ve mola', 'Bir kez başlat, durdurana kadar döner.'], ['Takip et ve yüksel', '⚙ ayarlar · 📒 kayıt · 📊 istatistik ve rütbe']] },
-    th:     { theme: 'ธีม', themeDark: 'มืด', themeLight: 'สว่าง', accentLabel: 'สีเน้น', obNext: 'ถัดไป', obStart: 'เริ่ม', obSkip: 'ข้าม', help: 'วิธีใช้', obSlides: [['ยินดีต้อนรับสู่ Cramodoro', 'เวลาโฟกัสสุ่ม — คุณปรับความน่าจะเป็นเองได้'], ['โฟกัสและพักอัตโนมัติ', 'เริ่มครั้งเดียว วนจนกว่าจะหยุด'], ['บันทึกและเลื่อนขั้น', '⚙ ตั้งค่า · 📒 บันทึก · 📊 สถิติและอันดับ']] },
-    vi:     { theme: 'Giao diện', themeDark: 'Tối', themeLight: 'Sáng', accentLabel: 'Màu nhấn', obNext: 'Tiếp', obStart: 'Bắt đầu', obSkip: 'Bỏ qua', help: 'Cách dùng', obSlides: [['Chào mừng đến Cramodoro', 'Thời gian tập trung ngẫu nhiên — bạn tự chỉnh xác suất.'], ['Tự động tập trung & nghỉ', 'Bắt đầu một lần, lặp đến khi bạn dừng.'], ['Theo dõi & lên hạng', '⚙ cài đặt · 📒 nhật ký · 📊 thống kê & hạng']] },
-  };
-  for (const l in THM) Object.assign(I18N[l], THM[l]);
-
-  // 公開準備（プライバシー導線など）
-  const PUB = {
-    ja: { privacy: 'プライバシーポリシー' }, en: { privacy: 'Privacy Policy' }, zh: { privacy: '隐私政策' }, zhHant: { privacy: '隱私權政策' },
-    ko: { privacy: '개인정보 처리방침' }, es: { privacy: 'Política de privacidad' }, pt: { privacy: 'Política de Privacidade' },
-    tr: { privacy: 'Gizlilik Politikası' }, th: { privacy: 'นโยบายความเป็นส่วนตัว' }, vi: { privacy: 'Chính sách bảo mật' },
-  };
-  for (const l in PUB) Object.assign(I18N[l], PUB[l]);
-
-  function loadLang() {
-    const s = localStorage.getItem('pomo_lang');
-    if (s && I18N[s]) return s;
-    const raw = (navigator.language || 'en').toLowerCase();
-    if (raw.startsWith('zh')) {
-      return /(hant|tw|hk|mo)/.test(raw) ? 'zhHant' : 'zh';   // 台湾・香港・澳門は繁體
-    }
-    const n = raw.slice(0, 2);
-    return I18N[n] ? n : 'en';
-  }
-
-  let lang = loadLang();
-
-  function t(key, arg) {
-    const dict = I18N[lang] || I18N.en;
-    let v = dict[key];
-    if (v === undefined) v = I18N.en[key];
-    return typeof v === 'function' ? v(arg) : v;
-  }
-
-  // 集中時間の確率分布（ユーザーが設定でいじれる）。
-  // 1〜60分を5分刻み12バケツに分割し、各バケツの「重み」(0〜100)で出やすさを決める。
-  // バケツ b（0〜11）の範囲は [b*5+1, b*5+5] 分。例: b=0→1〜5分, b=4→21〜25分, b=11→56〜60分。
-  const BUCKETS = 12;
-  // 既定: 20〜25分付近をピークにした山型（従来の三角分布に近い）。
-  const DEFAULT_WEIGHTS = [8, 15, 30, 60, 80, 55, 35, 22, 14, 9, 6, 4];
-
-  function loadWeights() {
-    try {
-      const s = JSON.parse(localStorage.getItem('pomo_dist'));
-      if (Array.isArray(s) && s.length === BUCKETS) {
-        return s.map(n => Math.max(0, Math.min(100, Number(n) || 0)));
-      }
-    } catch (e) {}
-    return DEFAULT_WEIGHTS.slice();
-  }
-
-  let weights = loadWeights();
-
-  function saveWeights() {
-    localStorage.setItem('pomo_dist', JSON.stringify(weights));
-  }
-
-  // 重みに比例してバケツを選び、その中で分を一様乱数で決める。
-  function sampleWorkSec() {
-    const total = weights.reduce((a, b) => a + b, 0);
-    let b;
-    if (total <= 0) {
-      b = Math.floor(Math.random() * BUCKETS);   // 全部0なら均等
-    } else {
-      let r = Math.random() * total;
-      for (b = 0; b < BUCKETS; b++) {
-        r -= weights[b];
-        if (r < 0) break;
-      }
-      if (b >= BUCKETS) b = BUCKETS - 1;
-    }
-    const lo = b * 5 + 1, hi = b * 5 + 5;
-    const minutes = lo + Math.floor(Math.random() * (hi - lo + 1));
-    return minutes * 60;
-  }
-
-  let totalSec   = sampleWorkSec();
-  let remaining  = totalSec;
-  let isRunning  = false;
-  let isBreak    = false;
-  let sessionNum = 1;
-  let interval   = null;
-  let endTime    = 0;   // 現フェーズの終了“絶対時刻”(ms)。実時刻から残りを計算するのでズレない。
-
-  const timeDisplay    = document.getElementById('timeDisplay');
-  const sessionsDisplay = document.getElementById('sessionsDisplay');
-  const modeLabel      = document.getElementById('modeLabel');
-  const breakInfo      = document.getElementById('breakInfo');
-  const progressRing   = document.getElementById('progressRing');
-  const startBtn       = document.getElementById('startBtn');
-  const resetBtn       = document.getElementById('resetBtn');
-  const skipBtn        = document.getElementById('skipBtn');
-  const countDisplay   = document.getElementById('countDisplay');
-
-  // 完了した集中セッションの累計回数。localStorage に保存して再読み込みでも残す。
-  let completedCount = parseInt(localStorage.getItem('pomo_completed') || '0', 10) || 0;
-
-  // 累計の集中「時間」（秒）。ランクはこれで決まる。
-  let totalFocusSec = parseInt(localStorage.getItem('pomo_focus_sec') || '0', 10) || 0;
-  function totalFocusMin() { return Math.floor(totalFocusSec / 60); }
-
-  // レベルのXP（時間＋ボーナス）。未保存の既存ユーザーは現在の集中時間から引き継ぐ。
-  let totalXP = (() => { const v = localStorage.getItem('pomo_xp'); return v !== null ? (parseInt(v, 10) || 0) : totalFocusMin(); })();
-  function saveXP() { localStorage.setItem('pomo_xp', String(totalXP)); }
-
-  // 学習ログ：完了した集中セッションの記録。{ end:ms, min:分, label:科目 }
-  function loadLog() { try { const s = JSON.parse(localStorage.getItem('pomo_log')); if (Array.isArray(s)) return s; } catch (e) {} return []; }
-  let logEntries = loadLog();
-  function saveLog() { localStorage.setItem('pomo_log', JSON.stringify(logEntries)); }
-
-  // 登録した科目（ログのラベル候補）。
-  function loadSubjects() { try { const s = JSON.parse(localStorage.getItem('pomo_subjects')); if (Array.isArray(s)) return s.map(String); } catch (e) {} return []; }
-  let subjects = loadSubjects();
-  function saveSubjects() { localStorage.setItem('pomo_subjects', JSON.stringify(subjects)); }
-
-  // 日次の完了回数（推移グラフ・連続日数用）。{ "YYYY-MM-DD": 回数 }
-  function todayStr(dt) {
-    dt = dt || new Date();
-    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
-  }
-  function loadDaily() {
-    try { const s = JSON.parse(localStorage.getItem('pomo_daily')); if (s && typeof s === 'object') return s; } catch (e) {}
-    return {};
-  }
-  let daily = loadDaily();
-  function saveDaily() { localStorage.setItem('pomo_daily', JSON.stringify(daily)); }
-  function currentStreak() {
-    let s = 0;
-    for (let i = 0; ; i++) { const d = new Date(); d.setDate(d.getDate() - i); if ((daily[todayStr(d)] || 0) > 0) s++; else break; }
-    return s;
-  }
-
-  function updateCount() {
-    countDisplay.textContent = t('completed', completedCount);
-  }
-
-  function addCompletion() {
-    const focusSec = totalSec;                          // いま完了した集中の長さ
-    const focusMin = Math.round(focusSec / 60);
-    const k = todayStr();
-    const todayCountBefore = daily[k] || 0;
-    const before = rankIndexFor(totalFocusMin());       // ランクは「時間」基準
-    const beforeLv = levelInfo(totalXP).level;          // レベルは「XP」基準
-
-    completedCount++;
-    localStorage.setItem('pomo_completed', String(completedCount));
-    totalFocusSec += focusSec;
-    localStorage.setItem('pomo_focus_sec', String(totalFocusSec));
-    daily[k] = todayCountBefore + 1;
-    saveDaily();
-    // 学習ログに追記（科目は後から入れられる）
-    logEntries.push({ end: Date.now(), min: focusMin, label: '' });
-    if (logEntries.length > 1000) logEntries = logEntries.slice(-1000);
-    saveLog();
-
-    // ===== XP（時間＋ボーナス）=====
-    let xp = focusMin;
-    if (focusMin > 30) xp += Math.round((focusMin - 30) * 0.5);   // 長時間集中ボーナス
-    if (todayCountBefore === 0) xp += Math.min(30, currentStreak() * 2);  // 連続日数ボーナス（その日最初）
-    // 目標達成ボーナス（今日の目標に“今”到達したら）
-    let goalBefore, goalAfter;
-    if (dailyGoal.unit === 'min') {
-      let after = 0; logEntries.forEach(e => { if (todayStr(new Date(e.end)) === k) after += e.min; });
-      goalAfter = after; goalBefore = after - focusMin;
-    } else {
-      goalAfter = daily[k]; goalBefore = goalAfter - 1;
-    }
-    if (goalBefore < dailyGoal.value && goalAfter >= dailyGoal.value) xp += 15;
-    totalXP += xp;
-    saveXP();
-
-    updateCount();
-    renderRankBadge();
-    renderGoal();
-    const afterLv = levelInfo(totalXP).level;
-    if (afterLv > beforeLv) showLevelToast(afterLv);    // レベルアップは小さなトースト
-    const after = rankIndexFor(totalFocusMin());
-    if (after > before) showRankUp(after, false);       // ランク昇格はポップアップ
-  }
-
-  function fmt(sec) {
-    const m = String(Math.floor(sec / 60)).padStart(2, '0');
-    const s = String(sec % 60).padStart(2, '0');
-    return `${m}:${s}`;
-  }
-
-  function updateRing() {
-    const ratio = remaining / totalSec;
-    const offset = CIRCUMFERENCE * (1 - ratio);
-    progressRing.style.strokeDashoffset = offset;
-    progressRing.style.strokeDasharray  = CIRCUMFERENCE;
-  }
-
-  function updateBackground() {
-    // 集中モードで動作中のときだけ画面の色を変える
-    document.body.classList.toggle('focusing', isRunning && !isBreak);
-  }
-
-  function updateUI() {
-    timeDisplay.textContent = fmt(remaining);
-    updateRing();
-    updateBackground();
-
-    const isWork = !isBreak;
-    modeLabel.textContent = isWork ? t('focusLabel', Math.round(totalSec / 60)) : t('break');
-    modeLabel.className   = 'mode-label' + (isBreak ? ' break' : '');
-    progressRing.setAttribute('class', 'progress' + (isBreak ? ' break' : ''));  // SVGはsetAttributeでないとclassが付かない
-    startBtn.className    = 'btn-main' + (isBreak ? ' break' : '');
-    startBtn.textContent  = t(isRunning ? 'stop' : 'start');
-    sessionsDisplay.textContent = t('session', sessionNum);
-    document.title = `${fmt(remaining)} — ${isWork ? t('focus') : t('break')}`;
-    // 広告は「休憩中だけ」表示（Proなら常に非表示）
-    adSlot.style.display = (MONETIZATION_ON && isBreak && !isPro()) ? 'flex' : 'none';
-    // 休憩中だけ：次回予告＋tip
-    if (isBreak) {
-      const tips = (I18N[lang] && I18N[lang].tips) || I18N.en.tips;
-      const tip = tips[sessionNum % tips.length];
-      breakInfo.innerHTML = `<div class="next">${t('nextUp')} ${t('focusLabel', Math.round((nextFocusSec || 0) / 60))}</div><div class="tip">${tip}</div>`;
-    } else {
-      breakInfo.innerHTML = '';
-    }
-  }
-
-  function beep(type) {
-    if (!soundOn || soundVol <= 0) return;        // ミュート・音量0なら鳴らさない
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const notes = type === 'end'
-      ? [{ f: 880, t: 0, d: 0.25 }, { f: 1100, t: 0.28, d: 0.35 }]
-      : [{ f: 660, t: 0, d: 0.2 }];
-
-    notes.forEach(({ f, t, d }) => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = f;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(0.4 * (soundVol / 100), ctx.currentTime + t);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + d);
-      osc.start(ctx.currentTime + t);
-      osc.stop(ctx.currentTime + t + d + 0.05);
-    });
-  }
-
-  function switchMode() {
-    if (!isBreak) {
-      // 集中 → 休憩（every 回ごとに長い休憩）
-      isBreak   = true;
-      const isLong = (focusInRun > 0 && focusInRun % brk.every === 0);
-      totalSec  = (isLong ? brk.long : brk.short) * 60;
-      remaining = totalSec;
-      nextFocusSec = sampleWorkSec();   // 休憩中に予告するため次の集中を先に確定
-    } else {
-      // 休憩 → 集中（休憩開始時に予告した時間を使う）
-      isBreak   = false;
-      sessionNum++;
-      totalSec  = nextFocusSec || sampleWorkSec();
-      remaining = totalSec;
-    }
-    updateUI();
-  }
-
-  // ===== スマホ/PC通知 =====
-  function requestNotifyPermission() {
-    try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
-  }
-  function showNotify(title, body) {
-    try {
-      if (!('Notification' in window) || Notification.permission !== 'granted') return;
-      if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-        navigator.serviceWorker.ready
-          .then(reg => reg.showNotification(title, { body, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'cramodoro-phase', renotify: true }))
-          .catch(() => { try { new Notification(title, { body }); } catch (e) {} });
-      } else {
-        new Notification(title, { body });
-      }
-    } catch (e) {}
-  }
-  function notifyPhase() {
-    const body = isBreak ? t('break') : t('focusLabel', Math.round(totalSec / 60));
-    showNotify('Cramodoro', body);
-  }
-
-  // タイムスタンプ方式：実時刻(endTime)から残りを計算。背面で複数フェーズ跨いでも“追いつく”。
-  function tick() {
-    if (!isRunning) return;
-    let ended = false, guard = 0;
-    while (Date.now() >= endTime && guard < 1000) {
-      guard++;
-      if (!isBreak) { addCompletion(); focusInRun++; }  // 集中を完走した時だけカウント
-      switchMode();                    // 次フェーズをセット（totalSec/remaining/isBreak更新）
-      endTime += totalSec * 1000;      // 次フェーズ終了＝前の終了＋今回の長さ
-      ended = true;
-    }
-    remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
-    if (ended) { beep('end'); notifyPhase(); }   // 通知は復帰時にまとめて1回
-    updateUI();
-  }
-
-  function start() {
-    // メインボタンはスタート / ストップのトグル。
-    // 一度スタートしたら、ストップを押すまで集中と休憩を自動で繰り返す。
-    if (isRunning) {
-      clearInterval(interval);
-      isRunning = false;
-      remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));  // 現在値で固定
-      startBtn.textContent = t('start');
-    } else {
-      requestNotifyPermission();
-      beep('start');
-      isRunning = true;
-      endTime = Date.now() + remaining * 1000;   // 終了を絶対時刻で保持
-      startBtn.textContent = t('stop');
-      interval = setInterval(tick, 1000);
-    }
-    updateBackground();
-  }
-
-  function reset() {
-    clearInterval(interval);
-    isRunning  = false;
-    isBreak    = false;
-    sessionNum = 1;
-    focusInRun = 0;
-    totalSec   = sampleWorkSec();   // リセット時も集中時間を引き直す
-    remaining  = totalSec;
-    startBtn.textContent = t('start');
-    updateUI();
-  }
-
-  function skip() {
-    // 動作中ならそのまま走り続け、停止中なら次フェーズの頭で待機。
-    switchMode();
-    if (isRunning) endTime = Date.now() + totalSec * 1000;   // スキップ時は今から数え直し
-  }
-
-  startBtn.addEventListener('click', start);
-  resetBtn.addEventListener('click', reset);
-  skipBtn.addEventListener('click', skip);
-
-  // 背面から戻った瞬間に実時刻へ“追いつく”
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && isRunning) tick(); });
-  window.addEventListener('focus', () => { if (isRunning) tick(); });
-
-  // カウント表示をクリックで累計をリセット
-  countDisplay.addEventListener('click', () => {
-    if (completedCount === 0 || confirm(t('countResetConfirm'))) {
-      completedCount = 0;
-      localStorage.setItem('pomo_completed', '0');
-      updateCount();
-    }
-  });
-
-  // ===== 設定（確率分布エディタ） =====
-  const gearBtn          = document.getElementById('gearBtn');
-  const settings         = document.getElementById('settings');
-  const barsEl           = document.getElementById('bars');
-  const barLabels        = document.getElementById('barLabels');
-  const distMean         = document.getElementById('distMean');
-  const resetDistBtn     = document.getElementById('resetDistBtn');
-  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-  const saveCustomBtn    = document.getElementById('saveCustomBtn');
-  const customName       = document.getElementById('customName');
-  const customList       = document.getElementById('customList');
-  const langSelect       = document.getElementById('langSelect');
-  const adSlot           = document.getElementById('adSlot');
-  const proBox           = document.getElementById('proBox');
-  const proStatus        = document.getElementById('proStatus');
-  const getProBtn        = document.getElementById('getProBtn');
-
-  // ===== 課金（Pro）=====
-  // ★リリース初期は課金を無効化（すべて無料・広告なし・マイ設定無制限）。
-  //   後で有効化するときは MONETIZATION_ON = true にするだけでUIと制限が復活する。
-  const MONETIZATION_ON = false;
-  // 無料はマイ設定を FREE_PRESET_LIMIT 個まで。Pro で無制限＋広告非表示。
-  const FREE_PRESET_LIMIT = 1;
-  function isPro() { return localStorage.getItem('pomo_pro') === '1'; }
-  function renderPro() {
-    proBox.style.display = MONETIZATION_ON ? '' : 'none';
-    if (!MONETIZATION_ON) return;
-    const pro = isPro();
-    proStatus.textContent = pro ? t('proOn') : t('proDesc');
-    getProBtn.style.display = pro ? 'none' : '';
-    proBox.classList.toggle('active', pro);
-    proBox.classList.remove('flash');
-  }
-
-  // 12バケツ(1-5,6-10,…,56-60分)の重みプリセット。それぞれ指定の分あたりが山型のピーク。
-  const PRESETS = {
-    p15: [40, 70, 90, 62, 38, 22, 12,  7,  4,  2,  1,  1],  // 15分あたり多め
-    p25: [ 6, 14, 30, 60, 85, 60, 35, 20, 12,  7,  4,  2],  // 25分あたり多め
-    p45: [ 2,  3,  5,  8, 14, 24, 40, 65, 88, 65, 40, 22],  // 45分あたり多め
-    p60: [ 1,  1,  2,  3,  5,  8, 14, 24, 40, 60, 85,100],  // 60分あたり多め
-  };
-
-  function applyWeights(arr) {
-    weights = arr.slice();
-    saveWeights();
-    refreshBars();
-    updateMean();
-  }
-
-  function buildBars() {
-    barsEl.innerHTML = '';
-    barLabels.innerHTML = '';
-    for (let i = 0; i < BUCKETS; i++) {
-      const bar = document.createElement('div');
-      bar.className = 'bar';
-      // アクセシビリティ：キーボード操作できるスライダーに
-      bar.setAttribute('role', 'slider');
-      bar.setAttribute('tabindex', '0');
-      bar.setAttribute('aria-label', `${i * 5 + 1}-${i * 5 + 5} min`);
-      bar.setAttribute('aria-valuemin', '0');
-      bar.setAttribute('aria-valuemax', '100');
-      bar.setAttribute('aria-valuenow', String(weights[i]));
-      bar.addEventListener('keydown', (e) => {
-        let d = 0;
-        if (e.key === 'ArrowUp' || e.key === 'ArrowRight') d = 5;
-        else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') d = -5;
-        else return;
-        e.preventDefault();
-        weights[i] = Math.max(0, Math.min(100, weights[i] + d));
-        refreshBars(); updateMean(); saveWeights();
-      });
-      const fill = document.createElement('div');
-      fill.className = 'fill';
-      fill.style.height = weights[i] + '%';
-      bar.appendChild(fill);
-      barsEl.appendChild(bar);
-
-      const label = document.createElement('span');
-      label.textContent = (i * 5 + 5);   // バケツ上限: 5,10,…,60
-      barLabels.appendChild(label);
-    }
-  }
-
-  function refreshBars() {
-    [...barsEl.children].forEach((bar, i) => {
-      bar.firstChild.style.height = weights[i] + '%';
-      bar.setAttribute('aria-valuenow', String(weights[i]));
-    });
-  }
-
-  function updateMean() {
-    const total = weights.reduce((a, b) => a + b, 0);
-    if (total <= 0) {
-      distMean.textContent = t('meanZero');
-      return;
-    }
-    let mean = 0;
-    for (let i = 0; i < BUCKETS; i++) mean += weights[i] * (i * 5 + 3); // バケツ中央
-    mean /= total;
-    distMean.textContent = t('mean', Math.round(mean));
-  }
-
-  let dragging = false;
-  let dragIndex = -1;   // ドラッグ開始時に触れたバーに固定
-  function indexAt(clientX) {
-    const rect = barsEl.getBoundingClientRect();
-    const idx = Math.floor((clientX - rect.left) / (rect.width / BUCKETS));
-    return Math.max(0, Math.min(BUCKETS - 1, idx));
-  }
-  function applyAt(clientY) {
-    if (dragIndex < 0) return;
-    const rect = barsEl.getBoundingClientRect();
-    let w = Math.round((1 - (clientY - rect.top) / rect.height) * 100);
-    w = Math.max(0, Math.min(100, w));
-    weights[dragIndex] = w;   // 最初に触れたバーだけを編集（横ズレで乗り移らない）
-    refreshBars();
-    updateMean();
-  }
-
-  barsEl.addEventListener('pointerdown', (e) => {
-    dragging = true;
-    dragIndex = indexAt(e.clientX);   // 押した位置のバーに固定
-    barsEl.setPointerCapture(e.pointerId);
-    applyAt(e.clientY);
-  });
-  barsEl.addEventListener('pointermove', (e) => {
-    if (dragging) applyAt(e.clientY);   // 縦移動だけ反映
-  });
-  function endDrag() {
-    if (dragging) { dragging = false; dragIndex = -1; saveWeights(); }
-  }
-  barsEl.addEventListener('pointerup', endDrag);
-  barsEl.addEventListener('pointercancel', endDrag);
-
-  // ===== マイ設定（複数・名前付き）=====
-  // 形式: [{ name, weights:[12] }, …] を localStorage 'pomo_customs' に保存。
-  function loadCustoms() {
-    try {
-      const s = JSON.parse(localStorage.getItem('pomo_customs'));
-      if (Array.isArray(s)) {
-        return s.filter(e => e && Array.isArray(e.weights) && e.weights.length === BUCKETS)
-                .map(e => ({ name: String(e.name || ''), weights: e.weights.map(Number) }));
-      }
-    } catch (e) {}
-    // 旧・単一スロットからの移行
-    try {
-      const old = JSON.parse(localStorage.getItem('pomo_dist_custom'));
-      if (Array.isArray(old) && old.length === BUCKETS) {
-        return [{ name: t('defaultName', 1), weights: old.map(Number) }];
-      }
-    } catch (e) {}
-    return [];
-  }
-
-  let customs = loadCustoms();
-
-  function saveCustoms() {
-    localStorage.setItem('pomo_customs', JSON.stringify(customs));
-  }
-
-  function renderCustomList() {
-    customList.innerHTML = '';
-    if (customs.length === 0) {
-      const empty = document.createElement('span');
-      empty.className = 'custom-empty';
-      empty.textContent = t('noCustom');
-      customList.appendChild(empty);
-      return;
-    }
-    customs.forEach((entry, i) => {
-      const chip = document.createElement('span');
-      chip.className = 'custom-chip';
-
-      const name = document.createElement('span');
-      name.className = 'name';
-      name.textContent = entry.name;
-      name.addEventListener('click', () => applyWeights(entry.weights));  // 呼び出し
-
-      const del = document.createElement('button');
-      del.className = 'del';
-      del.textContent = '×';
-      del.title = entry.name;
-      del.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (confirm(t('deleteConfirm', entry.name))) {
-          customs.splice(i, 1);
-          saveCustoms();
-          renderCustomList();
-        }
-      });
-
-      chip.appendChild(name);
-      chip.appendChild(del);
-      customList.appendChild(chip);
-    });
-  }
-
-  gearBtn.addEventListener('click', () => { buildBars(); updateMean(); renderCustomList(); renderPro(); settings.classList.add('open'); });
-  closeSettingsBtn.addEventListener('click', () => settings.classList.remove('open'));
-  settings.addEventListener('click', (e) => { if (e.target === settings) settings.classList.remove('open'); });
-  resetDistBtn.addEventListener('click', () => applyWeights(DEFAULT_WEIGHTS));
-
-  // プリセット適用
-  [...document.querySelectorAll('.presets button[data-preset]')].forEach(btn => {
-    btn.addEventListener('click', () => applyWeights(PRESETS[btn.dataset.preset]));
-  });
-
-  // 今の分布を名前付きで保存（いくつでも）
-  saveCustomBtn.addEventListener('click', () => {
-    // 無料枠の上限：Proでなければ FREE_PRESET_LIMIT 個まで（課金OFF中は無制限）
-    if (MONETIZATION_ON && !isPro() && customs.length >= FREE_PRESET_LIMIT) {
-      proStatus.textContent = t('proLimit', FREE_PRESET_LIMIT);
-      proBox.classList.add('flash');
-      setTimeout(renderPro, 2600);
-      return;
-    }
-    const name = customName.value.trim() || t('defaultName', customs.length + 1);
-    customs.push({ name, weights: weights.slice() });
-    saveCustoms();
-    customName.value = '';
-    renderCustomList();
-  });
-
-  getProBtn.addEventListener('click', () => {
-    // ★Phase 2 では Google Play Billing の購入フローをここで呼ぶ。
-    //   現状(Web)はデモとして即解錠する仮実装。
-    localStorage.setItem('pomo_pro', '1');
-    renderPro();
-    updateUI();   // 広告を消す
-  });
-  customName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveCustomBtn.click(); });
-
-  // ===== 言語切替 =====
-  function applyLang() {
-    document.documentElement.lang = lang;
-    langSelect.value = lang;
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      el.textContent = t(el.dataset.i18n);
-    });
-    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
-      el.placeholder = t(el.dataset.i18nPh);
-    });
-    // プリセットのボタン文言（分の数字込み）
-    document.querySelectorAll('.presets button[data-min]').forEach(btn => {
-      btn.textContent = t('presetLabel', Number(btn.dataset.min));
-    });
-    // タイトル属性など
-    const setLabel = (el, txt) => { if (el) { el.title = txt; el.setAttribute('aria-label', txt); } };
-    setLabel(gearBtn,  t('gearTitle'));
-    setLabel(resetBtn, t('resetTitle'));
-    setLabel(skipBtn,  t('skipTitle'));
-    setLabel(statsBtn, t('statsTitle'));
-    setLabel(logBtn,   t('logTitle'));
-    setLabel(langSelect, t('theme') ? 'Language' : 'Language');   // 言語選択
-    countDisplay.title = t('countResetTitle');
-    countDisplay.setAttribute('aria-label', t('countResetTitle'));
-    // オーバーレイを dialog として案内
-    [['settings', 'distTitle'], ['statsOverlay', 'statsTitle'], ['logOverlay', 'logTitle'], ['onboardOverlay', 'obStart'], ['rankupOverlay', 'rankUp']].forEach(([id, key]) => {
-      const el = document.getElementById(id);
-      if (el) { el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', t(key)); }
-    });
-    // 動的表示を再描画
-    updateUI();
-    updateCount();
-    updateMean();
-    renderCustomList();
-    renderPro();
-    renderRankBadge();
-    renderGoal();
-    refreshSelectLabels();
-    markAccent();
-    if (statsOverlay.classList.contains('open')) renderStats();
-    if (logOverlay.classList.contains('open')) { renderSubjects(); renderLog(); }
-    if (onboardOverlay.classList.contains('open')) renderOnboard();
-  }
-
-  langSelect.addEventListener('change', () => {
-    lang = langSelect.value;
-    localStorage.setItem('pomo_lang', lang);
-    applyLang();
-  });
-
-  // ===== 統計・ランク =====
-  const statsBtn      = document.getElementById('statsBtn');
-  const statsOverlay  = document.getElementById('statsOverlay');
-  const closeStatsBtn = document.getElementById('closeStatsBtn');
-  const rankIco    = document.getElementById('rankIco');
-  const rankName   = document.getElementById('rankName');
-  const rankFill   = document.getElementById('rankFill');
-  const rankNext   = document.getElementById('rankNext');
-  const statGrid   = document.getElementById('statGrid');
-  const standingVal = document.getElementById('standingVal');
-  const histEl     = document.getElementById('hist');
-  const rangeRow   = document.getElementById('rangeRow');
-  let currentRange = localStorage.getItem('pomo_histRange') || '14d';
-
-  // 累計の集中「時間（分）」で決まる称号（言語非依存：絵文字＋短い英名）。min は分しきい値。
-  const RANKS = [
-    { min: 0,     ico: '🌱', name: 'Rookie' },   // 0h
-    { min: 300,   ico: '🥉', name: 'Bronze' },   // 5h
-    { min: 1200,  ico: '🥈', name: 'Silver' },   // 20h
-    { min: 3000,  ico: '🥇', name: 'Gold' },     // 50h
-    { min: 9000,  ico: '💎', name: 'Diamond' },  // 150h
-    { min: 30000, ico: '👑', name: 'Master' },   // 500h
-    { min: 90000, ico: '🔥', name: 'Legend' },   // 1500h
-  ];
-
-  function rankIndexFor(totalMin) {
-    let idx = 0;
-    for (let i = RANKS.length - 1; i >= 0; i--) { if (totalMin >= RANKS[i].min) { idx = i; break; } }
-    return idx;
-  }
-
-  function fmtHM(min) {
-    const h = Math.floor(min / 60), m = Math.round(min % 60);
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
-  }
-
-  // レベル（XP=集中時間・分）。最初は速く、徐々に必要時間が増える。
-  function levelInfo(totalMin) {
-    let lvl = 1, need = 15, acc = 0;            // Lv1→2 は15分、以降+5分ずつ
-    while (totalMin >= acc + need) { acc += need; lvl++; need += 5; }
-    return { level: lvl, into: Math.round(totalMin - acc), need: need };
-  }
-
-  const levelToast = document.getElementById('levelToast');
-  function showLevelToast(lv) {
-    levelToast.textContent = 'Lv.' + lv + ' ↑';
-    levelToast.classList.remove('show');
-    void levelToast.offsetWidth;               // アニメ再生
-    levelToast.classList.add('show');
-  }
-
-  // メイン画面のランク章
-  const rankBadge      = document.getElementById('rankBadge');
-  // ランクアップ ポップアップ
-  const rankupOverlay  = document.getElementById('rankupOverlay');
-  const rankupIco      = document.getElementById('rankupIco');
-  const rankupName     = document.getElementById('rankupName');
-  const rankupDont     = document.getElementById('rankupDont');
-  const rankupCloseBtn = document.getElementById('rankupCloseBtn');
-
-  function renderRankBadge() {
-    const r = RANKS[rankIndexFor(totalFocusMin())];
-    const li = levelInfo(totalXP);
-    rankBadge.innerHTML = `Lv.${li.level} · <span class="ico">${r.ico}</span> ${r.name}`;
-  }
-
-  // 今日の目標（回数 or 時間）
-  const goalDisplay = document.getElementById('goalDisplay');
-  function renderGoal() {
-    let val, unit;
-    const goal = dailyGoal.value;
-    if (dailyGoal.unit === 'min') {
-      const tkey = todayStr(); let mins = 0;
-      logEntries.forEach(e => { if (todayStr(new Date(e.end)) === tkey) mins += e.min; });
-      val = mins; unit = t('unitMin');
-    } else {
-      val = daily[todayStr()] || 0; unit = t('unitCount');
-    }
-    const done = val >= goal;
-    const pct = goal > 0 ? Math.min(100, val / goal * 100) : 0;
-    goalDisplay.innerHTML =
-      `<div class="goal-text${done ? ' done' : ''}">${t('today')} ${val} / ${goal} ${unit}${done ? ' ✓' : ''}</div>` +
-      `<div class="goal-bar"><div class="goal-fill${done ? ' done' : ''}" style="width:${pct}%"></div></div>`;
-  }
-
-  function showRankUp(idx, force) {
-    if (!force && localStorage.getItem('pomo_norankpopup') === '1') return;   // 「今後表示しない」設定時
-    const r = RANKS[idx];
-    rankupIco.textContent = r.ico;
-    rankupName.textContent = r.name;
-    rankupDont.checked = false;
-    rankupOverlay.className = 'settings';            // 一旦リセット（アニメ再生のため）
-    void rankupOverlay.offsetWidth;                  // reflow
-    rankupOverlay.className = 'settings open fx-' + levelupStyle;
-  }
-
-  rankupCloseBtn.addEventListener('click', () => {
-    if (rankupDont.checked) localStorage.setItem('pomo_norankpopup', '1');
-    rankupOverlay.classList.remove('open');
-  });
-  rankupOverlay.addEventListener('click', (e) => { if (e.target === rankupOverlay) rankupOverlay.classList.remove('open'); });
-
-  // 1日平均から「推定の上位%」をざっくり算出（一般的な利用者を想定したベンチマーク比・目安）。
-  function estTopPct(avgPerDay) {
-    const pts = [[0,97],[0.5,88],[1,73],[2,53],[3,35],[4,22],[5,13],[6,8],[8,3],[10,1]];
-    if (avgPerDay <= 0) return 97;
-    for (let i = 1; i < pts.length; i++) {
-      if (avgPerDay <= pts[i][0]) {
-        const a = pts[i-1], b = pts[i];
-        return Math.round(a[1] + (b[1] - a[1]) * (avgPerDay - a[0]) / (b[0] - a[0]));
-      }
-    }
-    return 1;
-  }
-
-  function renderStats() {
-    // レベル（こまめに上がる）＋ランク称号
-    const cur = RANKS[rankIndexFor(totalFocusMin())];
-    const li = levelInfo(totalXP);
-    rankIco.textContent = cur.ico;
-    rankName.textContent = `Lv.${li.level} · ${cur.name}`;
-    rankFill.style.width = Math.max(0, Math.min(100, li.into / li.need * 100)) + '%';
-    rankNext.textContent = `Lv.${li.level + 1} ${t('toNext')} ${li.need - li.into} XP`;
-
-    // 連続日数（今日から遡って >0 が続く間）
-    let streak = 0;
-    for (let i = 0; ; i++) { const d = new Date(); d.setDate(d.getDate() - i); if ((daily[todayStr(d)] || 0) > 0) streak++; else break; }
-    // 7日合計・平均
-    let week7 = 0;
-    for (let i = 0; i < 7; i++) { const d = new Date(); d.setDate(d.getDate() - i); week7 += daily[todayStr(d)] || 0; }
-    const avgDay = week7 / 7;
-    // ベスト/日
-    let best = 0;
-    for (const k in daily) best = Math.max(best, daily[k]);
-
-    const tiles = [
-      { v: daily[todayStr()] || 0, l: t('today') },
-      { v: streak,                 l: t('streak') },
-      { v: week7,                  l: t('week7') },
-      { v: avgDay.toFixed(1),      l: t('avgDay') },
-      { v: best,                   l: t('best') },
-      { v: fmtHM(totalFocusMin()), l: t('totalTime') },
-    ];
-    statGrid.innerHTML = tiles.map(s => `<div class="stat-tile"><div class="v">${s.v}</div><div class="l">${s.l}</div></div>`).join('');
-
-    standingVal.textContent = t('topPct', estTopPct(avgDay));
-
-    renderHist();
-  }
-
-  // 選択中の期間に応じてバケツ（日/週/月）を作る
-  function histBuckets(range) {
-    const keys = Object.keys(daily).sort();
-    const today = new Date();
-    let spanDays;
-    if (range === '7d') spanDays = 7;
-    else if (range === '14d') spanDays = 14;
-    else if (range === '30d') spanDays = 30;
-    else if (range === '6m') spanDays = 183;
-    else if (range === '1y') spanDays = 365;
-    else { // all = いれた日から全期間
-      if (keys.length === 0) spanDays = 7;
-      else { const first = new Date(keys[0] + 'T00:00:00'); spanDays = Math.max(1, Math.floor((today - first) / 86400000) + 1); }
-    }
-    const gran = spanDays <= 31 ? 'day' : (spanDays <= 210 ? 'week' : 'month');
-    const out = [];
-    if (gran === 'day') {
-      for (let i = spanDays - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = todayStr(d); out.push({ label: String(d.getDate()), value: daily[k] || 0, isCurrent: i === 0, title: k }); }
-    } else if (gran === 'week') {
-      const weeks = Math.ceil(spanDays / 7);
-      for (let w = weeks - 1; w >= 0; w--) {
-        let sum = 0, startD = null;
-        for (let j = 0; j < 7; j++) { const d = new Date(); d.setDate(d.getDate() - (w * 7 + j)); sum += daily[todayStr(d)] || 0; if (j === 6) startD = d; }
-        out.push({ label: `${startD.getMonth() + 1}/${startD.getDate()}`, value: sum, isCurrent: w === 0, title: `${todayStr(startD)}〜` });
-      }
-    } else {
-      const start = new Date(); start.setDate(start.getDate() - (spanDays - 1));
-      let y = start.getFullYear(), m = start.getMonth();
-      const ey = today.getFullYear(), em = today.getMonth();
-      while (y < ey || (y === ey && m <= em)) {
-        const prefix = y + '-' + String(m + 1).padStart(2, '0');
-        let sum = 0; for (const k in daily) { if (k.indexOf(prefix) === 0) sum += daily[k]; }
-        out.push({ label: String(m + 1), value: sum, isCurrent: (y === ey && m === em), title: prefix });
-        m++; if (m > 11) { m = 0; y++; }
-      }
-    }
-    return out;
-  }
-
-  function renderHist() {
-    [...rangeRow.children].forEach(b => b.classList.toggle('active', b.dataset.range === currentRange));
-    const buckets = histBuckets(currentRange);
-    const max = Math.max(1, ...buckets.map(b => b.value));
-    const n = buckets.length;
-    const step = n > 16 ? Math.ceil(n / 8) : 1;   // バーが多い時はラベルを間引く
-    histEl.innerHTML = buckets.map((bk, i) => {
-      const h = bk.value > 0 ? Math.max(6, bk.value / max * 100) : 2;
-      const showLabel = (n <= 16) || bk.isCurrent || (i % step === 0);
-      return `<div class="col${bk.isCurrent ? ' today' : ''}"><div class="b" style="height:${h}%" title="${bk.title}: ${bk.value}"></div><div class="d">${showLabel ? bk.label : ''}</div></div>`;
-    }).join('');
-  }
-
-  [...rangeRow.children].forEach(b => b.addEventListener('click', () => {
-    currentRange = b.dataset.range;
-    localStorage.setItem('pomo_histRange', currentRange);
-    renderHist();
-  }));
-
-  statsBtn.addEventListener('click', () => { renderStats(); statsOverlay.classList.add('open'); });
-  closeStatsBtn.addEventListener('click', () => statsOverlay.classList.remove('open'));
-  statsOverlay.addEventListener('click', (e) => { if (e.target === statsOverlay) statsOverlay.classList.remove('open'); });
-
-  // ===== 学習ログ（科目登録＋セッション履歴）=====
-  const logBtn        = document.getElementById('logBtn');
-  const logOverlay    = document.getElementById('logOverlay');
-  const closeLogBtn   = document.getElementById('closeLogBtn');
-  const subjectName   = document.getElementById('subjectName');
-  const addSubjectBtn = document.getElementById('addSubjectBtn');
-  const subjectList   = document.getElementById('subjectList');
-  const logList       = document.getElementById('logList');
-
-  function renderSubjects() {
-    subjectList.innerHTML = '';
-    subjects.forEach((name, i) => {
-      const chip = document.createElement('span');
-      chip.className = 'custom-chip';
-      const n = document.createElement('span'); n.className = 'name'; n.textContent = name;
-      const del = document.createElement('button'); del.className = 'del'; del.textContent = '×';
-      del.addEventListener('click', () => { subjects.splice(i, 1); saveSubjects(); renderSubjects(); renderLog(); });
-      chip.appendChild(n); chip.appendChild(del);
-      subjectList.appendChild(chip);
-    });
-  }
-
-  function addSubject() {
-    const v = subjectName.value.trim();
-    if (!v) return;
-    if (!subjects.includes(v)) subjects.push(v);
-    saveSubjects();
-    subjectName.value = '';
-    renderSubjects();
-    renderLog();
-  }
-  addSubjectBtn.addEventListener('click', addSubject);
-  subjectName.addEventListener('keydown', (e) => { if (e.key === 'Enter') addSubject(); });
-
-  function renderLog() {
-    const items = logEntries.slice(-60).reverse();   // 直近60件、新しい順
-    if (items.length === 0) { logList.innerHTML = `<div class="custom-empty">${t('noLog')}</div>`; return; }
-    logList.innerHTML = '';
-    items.forEach(e => {
-      const d = new Date(e.end);
-      const time = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-      const row = document.createElement('div'); row.className = 'log-row';
-      const meta = document.createElement('span'); meta.className = 'log-meta'; meta.textContent = `${time} · ${e.min}m`;
-      const sel = document.createElement('select');
-      const optNone = document.createElement('option'); optNone.value = ''; optNone.textContent = t('unset'); sel.appendChild(optNone);
-      subjects.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o); });
-      if (e.label && !subjects.includes(e.label)) { const o = document.createElement('option'); o.value = e.label; o.textContent = e.label; sel.appendChild(o); }
-      sel.value = e.label || '';
-      sel.addEventListener('change', () => { e.label = sel.value; saveLog(); });   // 「この時間はコレをやった」を後から登録
-      row.appendChild(meta); row.appendChild(sel);
-      logList.appendChild(row);
-    });
-  }
-
-  logBtn.addEventListener('click', () => { renderSubjects(); renderLog(); logOverlay.classList.add('open'); });
-  closeLogBtn.addEventListener('click', () => logOverlay.classList.remove('open'));
-  logOverlay.addEventListener('click', (e) => { if (e.target === logOverlay) logOverlay.classList.remove('open'); });
-
-  // ===== 休憩設定 =====
-  const brkShortInput = document.getElementById('brkShortInput');
-  const brkLongInput  = document.getElementById('brkLongInput');
-  const brkEveryInput = document.getElementById('brkEveryInput');
-  function fillBreakInputs() {
-    brkShortInput.value = brk.short;
-    brkLongInput.value  = brk.long;
-    brkEveryInput.value = brk.every;
-  }
-  function readBreakInputs() {
-    brk.short = Math.max(1, Math.min(60,  parseInt(brkShortInput.value, 10) || DEFAULT_BREAK.short));
-    brk.long  = Math.max(1, Math.min(120, parseInt(brkLongInput.value, 10)  || DEFAULT_BREAK.long));
-    brk.every = Math.max(1, Math.min(12,  parseInt(brkEveryInput.value, 10) || DEFAULT_BREAK.every));
-    saveBreak();
-    fillBreakInputs();   // 範囲補正を反映
-  }
-  [brkShortInput, brkLongInput, brkEveryInput].forEach(el => el.addEventListener('change', readBreakInputs));
-
-  // ===== バックアップ（書き出し／読み込み）=====
-  const BACKUP_KEYS = ['pomo_completed','pomo_focus_sec','pomo_xp','pomo_daily','pomo_log','pomo_subjects','pomo_dist','pomo_customs','pomo_lang','pomo_pro','pomo_break','pomo_histRange','pomo_norankpopup'];
-  const exportBtn  = document.getElementById('exportBtn');
-  const importBtn  = document.getElementById('importBtn');
-  const importFile = document.getElementById('importFile');
-
-  exportBtn.addEventListener('click', () => {
-    const data = { app: 'pomodoro', version: 1 };
-    BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = v; });
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'pomodoro-backup.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  importBtn.addEventListener('click', () => importFile.click());
-  importFile.addEventListener('change', () => {
-    const file = importFile.files && importFile.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        if (!data || data.app !== 'pomodoro') throw new Error('bad');
-        BACKUP_KEYS.forEach(k => { if (typeof data[k] === 'string') localStorage.setItem(k, data[k]); });
-        alert(t('importOk'));
-        location.reload();
-      } catch (e) {
-        alert(t('importErr'));
-      }
-    };
-    reader.readAsText(file);
-    importFile.value = '';
-  });
-
-  // ===== 目標・音・昇格演出の設定 =====
-  const goalUnitSel = document.getElementById('goalUnitSel');
-  const goalInput   = document.getElementById('goalInput');
-  const soundToggle = document.getElementById('soundToggle');
-  const volSlider   = document.getElementById('volSlider');
-  const levelupSel  = document.getElementById('levelupSel');
-
-  // セレクタの選択肢ラベルを現在言語で再構築（applyLang から呼ばれる）
-  function refreshSelectLabels() {
-    goalUnitSel.innerHTML = `<option value="count">${t('unitCount')}</option><option value="min">${t('unitMin')}</option>`;
-    goalUnitSel.value = dailyGoal.unit;
-    levelupSel.innerHTML = `<option value="sparkle">${t('lvSparkle')}</option><option value="subtle">${t('lvSubtle')}</option><option value="confetti">${t('lvConfetti')}</option>`;
-    levelupSel.value = levelupStyle;
-    themeSel.innerHTML = `<option value="dark">${t('themeDark')}</option><option value="light">${t('themeLight')}</option>`;
-    themeSel.value = theme;
-  }
-
-  function fillFeatInputs() {
-    goalInput.value = dailyGoal.value;
-    soundToggle.checked = soundOn;
-    volSlider.value = soundVol;
-  }
-
-  goalUnitSel.addEventListener('change', () => { dailyGoal.unit = goalUnitSel.value; saveGoal(); renderGoal(); });
-  goalInput.addEventListener('change', () => {
-    dailyGoal.value = Math.max(1, Math.min(999, parseInt(goalInput.value, 10) || 8));
-    goalInput.value = dailyGoal.value; saveGoal(); renderGoal();
-  });
-  soundToggle.addEventListener('change', () => { soundOn = soundToggle.checked; localStorage.setItem('pomo_sound', soundOn ? '1' : '0'); });
-  volSlider.addEventListener('change', () => { soundVol = parseInt(volSlider.value, 10) || 0; localStorage.setItem('pomo_vol', String(soundVol)); beep('start'); });
-  levelupSel.addEventListener('change', () => {
-    levelupStyle = levelupSel.value;
-    localStorage.setItem('pomo_lvfx', levelupStyle);
-    showRankUp(Math.max(1, rankIndexFor(totalFocusMin())), true);   // 選んだ演出をその場でプレビュー
-  });
-
-  // ===== テーマ・アクセント =====
-  const themeSel  = document.getElementById('themeSel');
-  const accentRow = document.getElementById('accentRow');
-  function markAccent() { [...accentRow.children].forEach(b => b.classList.toggle('on', b.dataset.accent === accent)); }
-  themeSel.addEventListener('change', () => { theme = themeSel.value; localStorage.setItem('pomo_theme', theme); applyTheme(); });
-  [...accentRow.children].forEach(b => b.addEventListener('click', () => {
-    accent = b.dataset.accent; localStorage.setItem('pomo_accent', accent); applyTheme(); markAccent();
-  }));
-
-  // ===== オンボーディング（初回起動の案内）=====
-  const onboardOverlay = document.getElementById('onboardOverlay');
-  const obIco = document.getElementById('obIco');
-  const obTitle = document.getElementById('obTitle');
-  const obBody = document.getElementById('obBody');
-  const obDots = document.getElementById('obDots');
-  const obNextBtn = document.getElementById('obNextBtn');
-  const obSkipBtn = document.getElementById('obSkipBtn');
-  const helpLink = document.getElementById('helpLink');
-  const OB_ICONS = ['🍅', '🔁', '🏅'];
-  let obIndex = 0;
-  function obSlides() { return (I18N[lang] && I18N[lang].obSlides) || I18N.en.obSlides; }
-  function renderOnboard() {
-    const slides = obSlides();
-    const s = slides[obIndex] || slides[0];
-    obIco.textContent = OB_ICONS[obIndex] || '🍅';
-    obTitle.textContent = s[0];
-    obBody.textContent = s[1];
-    obDots.innerHTML = slides.map((_, i) => `<i class="${i === obIndex ? 'on' : ''}"></i>`).join('');
-    obNextBtn.textContent = (obIndex >= slides.length - 1) ? t('obStart') : t('obNext');
-  }
-  function openOnboard() { obIndex = 0; renderOnboard(); onboardOverlay.classList.add('open'); }
-  function closeOnboard() { onboardOverlay.classList.remove('open'); localStorage.setItem('pomo_onboarded', '1'); }
-  obNextBtn.addEventListener('click', () => {
-    if (obIndex >= obSlides().length - 1) closeOnboard();
-    else { obIndex++; renderOnboard(); }
-  });
-  obSkipBtn.addEventListener('click', closeOnboard);
-  onboardOverlay.addEventListener('click', (e) => { if (e.target === onboardOverlay) closeOnboard(); });
-  helpLink.addEventListener('click', () => { settings.classList.remove('open'); openOnboard(); });
-
-  applyTheme();
-  fillBreakInputs();
-  fillFeatInputs();
-  renderRankBadge();
-  applyLang();   // updateUI / updateCount / renderGoal / refreshSelectLabels もここで実行される
-  updateMean();
-  if (!localStorage.getItem('pomo_onboarded')) openOnboard();   // 初回だけ案内
-</script>
-
-<script>
-  // PWA: Service Worker 登録（オフライン＆ホーム追加用）
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
-  }
-</script>
-</body>
+    <script src="app.js"></script>
+  </body>
 </html>

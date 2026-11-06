@@ -1,0 +1,8 @@
+<svg width="1024" height="1024" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cramodoro">
+  <rect width="512" height="512" fill="#0b2545"/>
+  <circle cx="256" cy="256" r="130" fill="none" stroke="#16294b" stroke-width="26"/>
+  <path d="M348 348 A130 130 0 1 1 348 164" fill="none" stroke="#4ecdc4" stroke-width="26"/>
+  <circle cx="348" cy="348" r="13" fill="#f5a623"/>
+  <circle cx="348" cy="164" r="13" fill="#f5a623"/>
+  <circle cx="256" cy="256" r="13" fill="#4ecdc4"/>
+</svg>

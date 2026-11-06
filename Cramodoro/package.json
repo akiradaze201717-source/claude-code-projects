@@ -1,0 +1,34 @@
+{
+  "name": "cramodoro",
+  "version": "1.0.0",
+  "description": "ランダムな集中時間で続けられる、勉強用のポモドーロ式タイマー",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-web.mjs",
+    "android:sync": "npm run build && cap sync android",
+    "android:open": "cap open android",
+    "lint": "npm run lint:js && npm run lint:css",
+    "lint:js": "eslint .",
+    "lint:css": "stylelint \"**/*.css\"",
+    "lint:fix": "eslint --fix . && stylelint \"**/*.css\" --fix",
+    "format": "prettier --write \"**/*.{html,css,js,mjs,json,webmanifest}\"",
+    "format:check": "prettier --check \"**/*.{html,css,js,mjs,json,webmanifest}\"",
+    "check": "npm run format:check && npm run lint"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.0",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.14.0",
+    "prettier": "^3.9.10",
+    "stylelint": "^17.16.0",
+    "stylelint-config-standard": "^40.0.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/local-notifications": "^8.3.1"
+  }
+}

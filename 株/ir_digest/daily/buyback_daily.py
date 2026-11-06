@@ -50,7 +50,8 @@ ARCHIVE_PATH = ROOT_DIR / "buyback_events_archive.json"  # backtestと共有す�
 def parse_args():
     p = argparse.ArgumentParser(description="自社株買い・資本政策の日次まとめ")
     p.add_argument("--date", help="対象日 YYYYMMDD（既定: 本日）")
-    p.add_argument("--no-send", action="store_true", help="メール送信せずHTMLのみ生成")
+    p.add_argument("--send", action="store_true", help="メール送信を行う（既定: 送信しない）")
+    p.add_argument("--no-send", action="store_true", help="メール送信せずHTMLのみ生成（既定動作）")
     return p.parse_args()
 
 
@@ -148,9 +149,9 @@ def main() -> int:
     out_path.write_text(html, encoding="utf-8")
     logger.info("HTML保存: %s", out_path)
 
-    # 5) 送信
-    if args.no_send:
-        logger.info("--no-send 指定のため送信しません。")
+    # 5) 送信（週次レポートのみ通知する運用のため、既定では日次メール送信を行わない）
+    if not args.send or args.no_send:
+        logger.info("日次メール通知は停止中のため送信しません（--send 指定時のみ送信）。")
     else:
         if not (cfg["gmail_address"] and cfg["gmail_app_password"] and cfg["recipient"]):
             logger.error("Gmail設定が不足。config.env を確認してください。送信をスキップします。")
